@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { loadConfig } from './config.ts';
 import { registerRoutes } from './routes.ts';
 import { registerAuthRoutes } from './auth/routes.ts';
+import { registerGameRoutes } from './games/routes.ts';
 import { attachClaims } from './auth/middleware.ts';
 import { closePool } from './db.ts';
 
@@ -35,6 +36,7 @@ await app.register(cors, {
 app.addHook('preHandler', attachClaims(config.JWT_SECRET));
 
 registerAuthRoutes(app, config);
+registerGameRoutes(app, config);
 registerRoutes(app, config);
 
 app.setErrorHandler((err: FastifyError, _req, reply) => {
