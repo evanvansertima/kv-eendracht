@@ -37,10 +37,36 @@ docs/            documentation (source of truth for the Obsidian vault)
 ```bash
 pnpm install
 cp .env.example .env
-docker compose -f infra/docker-compose.yml up -d
+```
+
+Now open `.env` and replace every `<local-dev-password>` with a single password of your
+choosing — at least 8 characters, which MinIO requires. One value covers Postgres and
+MinIO, so there is only one credential to remember locally.
+
+That is safe here and only here: RLS enforcement depends on **which role** you connect
+as, never on the password, so `kv_api` sharing a password with `kv_owner` still leaves
+`kv_api` without `BYPASSRLS`. Production uses a distinct secret per field, supplied from
+the host environment.
+
+```bash
+docker compose --env-file .env -f infra/docker-compose.yml up -d
 pnpm db:migrate && pnpm db:seed
 pnpm dev
 ```
+
+Local sign-ins, once the stack is up:
+
+| Service | Username | Password |
+|---|---|---|
+| MinIO console | `kvadmin` | your `<local-dev-password>` |
+| Adminer | `kv_owner`, server `postgres`, database `kv_eendracht` | your `<local-dev-password>` |
+| Mailpit | no authentication | — |
+
+> **Changing a database password later needs a volume reset.** Postgres reads
+> `KV_MIGRATOR_PASSWORD` and `KV_API_PASSWORD` only when initialising an empty data
+> directory. Edit them and restart, and nothing happens — worse, if the init script ever
+> fails, Postgres reports *healthy* while missing every role. Run
+> `docker compose --env-file .env -f infra/docker-compose.yml down -v` and start again.
 
 | Surface | URL |
 |---|---|
