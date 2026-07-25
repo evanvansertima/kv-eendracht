@@ -6,6 +6,7 @@ import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { formatEventMoment } from '../../src/lib/dates';
 import { Card, Loading, ErrorState, EmptyState, Segmented } from '../../src/components/ui';
 import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
+import { type as t } from '../../src/theme/typography';
 
 /** Free text plus a suggestion list, so a new category needs no migration (spec section 7). */
 const TYPES = ['Alles', 'Competitie', 'Toernooi', 'Training', 'Vergadering', 'Overig'] as const;
@@ -43,7 +44,7 @@ export default function Agenda() {
         value={query}
         onChangeText={setQuery}
         placeholder="Zoek in de agenda…"
-        placeholderTextColor={colors.gray500}
+        placeholderTextColor={colors.textMuted}
         accessibilityLabel="Zoek in de agenda"
         style={s.search}
       />
@@ -78,14 +79,17 @@ const s = StyleSheet.create({
   page: { padding: spacing.lg, backgroundColor: colors.background },
   pageWide: { maxWidth: 900, width: '100%', alignSelf: 'center', padding: spacing.xxl },
   search: {
+    ...t.body,
     minHeight: MIN_TOUCH,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.md,
-    color: colors.black,
+    color: colors.text,
   },
-  title: { fontWeight: '700', fontSize: 15, color: colors.black },
-  muted: { color: colors.gray500, marginTop: 2 },
-  body: { color: colors.gray700, marginTop: spacing.sm },
+  title: t.cardTitle,
+  muted: { ...t.meta, marginTop: 2 },
+  body: { ...t.body, color: colors.textMuted, marginTop: spacing.sm },
 });

@@ -6,6 +6,7 @@ import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { formatRelative } from '../../src/lib/dates';
 import { Card, Loading, ErrorState, EmptyState, Segmented } from '../../src/components/ui';
 import { colors, spacing } from '../../src/theme/tokens';
+import { type as t } from '../../src/theme/typography';
 
 const SECTIONS = ['Nieuws', 'Forum', "Foto's", 'Peilingen'] as const;
 type Section = (typeof SECTIONS)[number];
@@ -103,17 +104,18 @@ const s = StyleSheet.create({
   page: { padding: spacing.lg, backgroundColor: colors.background },
   pageWide: { maxWidth: 900, width: '100%', alignSelf: 'center', padding: spacing.xxl },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontWeight: '700', fontSize: 15, color: colors.black, flex: 1 },
-  meta: { color: colors.gray500, fontSize: 12, marginTop: 2 },
-  body: { color: colors.gray700, marginTop: spacing.sm },
+  title: { ...t.cardTitle, flex: 1 },
+  meta: { ...t.meta, marginTop: 2 },
+  body: { ...t.body, color: colors.textMuted, marginTop: spacing.sm },
   optionRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray300,
+    borderBottomColor: colors.line,
   },
-  optionLabel: { color: colors.black, flex: 1 },
-  optionVotes: { fontWeight: '700', fontVariant: ['tabular-nums'], color: colors.gray700 },
-  hint: { color: colors.gray500, fontSize: 12, marginTop: spacing.sm, fontStyle: 'italic' },
+  optionLabel: { ...t.body, flex: 1 },
+  optionVotes: { ...t.tableNumLead, color: colors.text },
+  hint: { ...t.meta, marginTop: spacing.sm, fontStyle: 'italic' },
 });

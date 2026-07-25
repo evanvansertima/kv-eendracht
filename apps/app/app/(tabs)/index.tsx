@@ -1,12 +1,28 @@
 import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { api, SYSTEM_LABELS, FORMATION_LABELS } from '../../src/lib/api';
 import { useAsync } from '../../src/lib/useAsync';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { formatEventMoment, formatDate } from '../../src/lib/dates';
-import { Card, SectionHeader, StatusLabel, Loading, ErrorState, EmptyState, Button } from '../../src/components/ui';
+import {
+  Card,
+  SectionHeader,
+  StatusLabel,
+  SportPanel,
+  Loading,
+  ErrorState,
+  EmptyState,
+} from '../../src/components/ui';
 import { colors, spacing, radii } from '../../src/theme/tokens';
+import { type as t } from '../../src/theme/typography';
+
+const QUICK = [
+  { label: 'Agenda', href: '/agenda', icon: 'calendar-outline' },
+  { label: 'Toernooien', href: '/toernooien', icon: 'trophy-outline' },
+  { label: 'Competitie', href: '/competitie', icon: 'stats-chart-outline' },
+] as const;
 
 export default function Home() {
   const { isWide } = useBreakpoint();
@@ -31,15 +47,23 @@ export default function Home() {
   return (
     <ScrollView contentContainerStyle={[s.page, isWide && s.pageWide]}>
       <View style={s.hero}>
-        <Text style={s.heroKicker}>KAATSVERENIGING</Text>
-        <Text style={s.heroTitle}>KV EENDRACHT</Text>
-        <View style={s.accentBar} />
+        <Text style={s.heroKicker}>Kaatsvereniging</Text>
+        <Text style={s.heroTitle}>KV Eendracht</Text>
+        <View style={s.heroRule} />
       </View>
 
       <View style={s.quickRow}>
-        <Button label="Agenda" variant="ghost" onPress={() => router.push('/agenda')} />
-        <Button label="Toernooien" variant="ghost" onPress={() => router.push('/toernooien')} />
-        <Button label="Competitie" variant="ghost" onPress={() => router.push('/competitie')} />
+        {QUICK.map((q) => (
+          <Text
+            key={q.href}
+            accessibilityRole="button"
+            accessibilityLabel={q.label}
+            onPress={() => router.push(q.href)}
+            style={s.quick}
+          >
+            {q.label}
+          </Text>
+        ))}
       </View>
 
       <View style={isWide ? s.columns : undefined}>
@@ -47,8 +71,8 @@ export default function Home() {
           <SectionHeader title="Volgende activiteit" />
           {nextEvent ? (
             <Card>
-              <Text style={s.itemTitle}>{nextEvent.title}</Text>
-              <Text style={s.muted}>
+              <Text style={t.cardTitle}>{nextEvent.title}</Text>
+              <Text style={t.meta}>
                 {formatEventMoment(nextEvent.starts_at)}
                 {nextEvent.location ? ` · ${nextEvent.location}` : ''}
               </Text>
@@ -59,22 +83,22 @@ export default function Home() {
 
           <SectionHeader title="Volgend toernooi" />
           {nextTournament ? (
-            <Card dark>
+            <View style={s.tourCard}>
               <View style={s.rowBetween}>
-                <Text style={s.itemTitleLight}>{nextTournament.name}</Text>
+                <Text style={s.tourTitle}>{nextTournament.name}</Text>
                 <StatusLabel status="binnenkort" />
               </View>
-              <Text style={s.mutedLight}>
+              <Text style={s.onSportMeta}>
                 {nextTournament.played_on ? formatDate(nextTournament.played_on) : 'Datum volgt'}
                 {nextTournament.location ? ` · ${nextTournament.location}` : ''}
               </Text>
-              <Text style={s.mutedLight}>
+              <Text style={s.onSportMeta}>
                 {SYSTEM_LABELS[nextTournament.match_system] ?? nextTournament.match_system}
                 {' · '}
                 {FORMATION_LABELS[nextTournament.formation_category] ??
                   nextTournament.formation_category}
               </Text>
-            </Card>
+            </View>
           ) : (
             <EmptyState title="Geen toernooien gepland" />
           )}
@@ -82,28 +106,28 @@ export default function Home() {
 
         <View style={isWide ? s.column : undefined}>
           <SectionHeader title="Top 5 competitie" />
-          <Card>
+          <SportPanel>
             {top5.length === 0 ? (
-              <EmptyState title="Nog geen stand" />
+              <Text style={s.onSportMeta}>Nog geen stand.</Text>
             ) : (
-              top5.map((r) => (
-                <View key={r.player_id} style={s.standRow}>
+              top5.map((r, i) => (
+                <View key={r.player_id} style={[s.standRow, i === top5.length - 1 && s.noBorder]}>
                   <Text style={s.pos}>{r.position ?? '–'}</Text>
                   <Text style={s.name} numberOfLines={1}>
                     {r.display_name}
                   </Text>
-                  <Text style={s.num}>{r.eersten_voor}</Text>
+                  <Text style={s.numLead}>{r.eersten_voor}</Text>
                 </View>
               ))
             )}
-          </Card>
+          </SportPanel>
 
           <SectionHeader title="Laatste nieuws" />
           {news.slice(0, 3).map((n) => (
             <Card key={n.id}>
-              <Text style={s.itemTitle}>{n.title}</Text>
+              <Text style={t.cardTitle}>{n.title}</Text>
               {n.intro ? (
-                <Text style={s.muted} numberOfLines={2}>
+                <Text style={t.meta} numberOfLines={2}>
                   {n.intro}
                 </Text>
               ) : null}
@@ -114,11 +138,12 @@ export default function Home() {
             <>
               <SectionHeader title="Peiling" />
               <Card>
-                <Text style={s.itemTitle}>{poll.question}</Text>
+                <Text style={t.cardTitle}>{poll.question}</Text>
                 {poll.options.map((o) => (
-                  <Text key={o.option_id} style={s.muted}>
-                    • {o.label}
-                  </Text>
+                  <View key={o.option_id} style={s.pollRow}>
+                    <Ionicons name="ellipse-outline" size={13} color={colors.textMuted} />
+                    <Text style={[t.body, s.flex]}>{o.label}</Text>
+                  </View>
                 ))}
                 <Text style={s.hint}>Stemmen kan zodra je bent ingelogd.</Text>
               </Card>
@@ -131,45 +156,67 @@ export default function Home() {
 }
 
 const s = StyleSheet.create({
-  page: { padding: spacing.lg, backgroundColor: colors.background },
-  pageWide: { maxWidth: 1100, width: '100%', alignSelf: 'center', padding: spacing.xxl },
+  page: { padding: spacing.lg, backgroundColor: colors.background, paddingBottom: spacing.xxl },
+  pageWide: { maxWidth: 1080, width: '100%', alignSelf: 'center', padding: spacing.xxl },
   columns: { flexDirection: 'row', gap: spacing.xl },
   column: { flex: 1 },
+  flex: { flex: 1 },
 
-  hero: { backgroundColor: colors.surfaceDark, borderRadius: radii.lg, padding: spacing.xl },
-  heroKicker: { color: colors.accent, fontSize: 12, letterSpacing: 2, fontWeight: '700' },
-  heroTitle: {
-    color: colors.white,
-    fontSize: 36,
-    fontWeight: '900',
-    fontStyle: 'italic',
-    letterSpacing: -1,
+  hero: {
+    backgroundColor: colors.sport,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
-  accentBar: {
-    height: 5,
-    width: 90,
-    backgroundColor: colors.primary,
-    marginTop: spacing.sm,
-    transform: [{ skewX: '-8deg' }],
+  heroKicker: { ...t.sectionLabel, color: colors.onSportMuted },
+  heroTitle: { ...t.hero, color: colors.onSport, marginTop: spacing.xs },
+  heroRule: {
+    height: 3,
+    width: 30,
+    borderRadius: 2,
+    backgroundColor: colors.primaryOnSport,
+    marginTop: spacing.md,
   },
 
   quickRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  quick: {
+    ...t.button,
+    color: colors.text,
+    backgroundColor: colors.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    borderRadius: radii.full,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    overflow: 'hidden',
+  },
 
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  itemTitle: { fontWeight: '700', fontSize: 15, color: colors.black },
-  itemTitleLight: { fontWeight: '800', fontSize: 16, color: colors.white, flex: 1 },
-  muted: { color: colors.gray500, marginTop: 2 },
-  mutedLight: { color: colors.gray300, marginTop: 2 },
-  hint: { color: colors.gray500, fontSize: 12, marginTop: spacing.sm, fontStyle: 'italic' },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  tourCard: {
+    backgroundColor: colors.sportRaised,
+    borderRadius: radii.md,
+    padding: spacing.md,
+  },
+  tourTitle: { ...t.cardTitle, color: colors.onSport, flex: 1 },
+  onSportMeta: { ...t.meta, color: colors.onSportMuted, marginTop: 2 },
 
   standRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.gray300,
+    borderBottomColor: colors.lineOnSport,
   },
-  pos: { width: 26, color: colors.gray700, fontVariant: ['tabular-nums'] },
-  name: { flex: 1, fontWeight: '600', color: colors.black },
-  num: { width: 34, textAlign: 'right', fontVariant: ['tabular-nums'], fontWeight: '700' },
+  noBorder: { borderBottomWidth: 0 },
+  pos: { ...t.tableNum, width: 24, color: colors.onSportMuted },
+  name: { ...t.tableName, flex: 1, color: colors.onSport },
+  numLead: { ...t.tableNumLead, width: 34, textAlign: 'right', color: colors.onSport },
+
+  pollRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  hint: { ...t.meta, marginTop: spacing.sm, fontStyle: 'italic' },
 });

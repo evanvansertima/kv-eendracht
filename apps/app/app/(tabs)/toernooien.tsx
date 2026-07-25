@@ -5,7 +5,8 @@ import { useAsync } from '../../src/lib/useAsync';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { formatDate } from '../../src/lib/dates';
 import { Card, Loading, ErrorState, EmptyState, StatusLabel, type Status } from '../../src/components/ui';
-import { colors, spacing } from '../../src/theme/tokens';
+import { colors, spacing, radii } from '../../src/theme/tokens';
+import { type as t } from '../../src/theme/typography';
 
 /** Maps the database status onto the three public chips from spec section 1. */
 function chipFor(status: string, playedOn: string | null): Status {
@@ -57,17 +58,16 @@ const s = StyleSheet.create({
   page: { padding: spacing.lg, backgroundColor: colors.background },
   pageWide: { maxWidth: 900, width: '100%', alignSelf: 'center', padding: spacing.xxl },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  title: { fontWeight: '800', fontSize: 16, color: colors.black, flex: 1 },
-  muted: { color: colors.gray500, marginTop: 2 },
+  title: { ...t.cardTitle, flex: 1 },
+  muted: { ...t.meta, marginTop: 2 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   tag: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.gray700,
-    backgroundColor: colors.gray100,
+    ...t.meta,
+    color: colors.textMuted,
+    backgroundColor: colors.neutralChip,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    borderRadius: 999,
+    borderRadius: radii.full,
     overflow: 'hidden',
   },
 });

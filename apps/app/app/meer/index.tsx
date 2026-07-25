@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card, SectionHeader, Button } from '../../src/components/ui';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { colors, spacing } from '../../src/theme/tokens';
+import { type as t } from '../../src/theme/typography';
 
 /**
  * The menu behind the profile button. Six primary destinations would crowd a phone, so
@@ -56,14 +57,9 @@ export default function Meer() {
 const s = StyleSheet.create({
   page: { padding: spacing.lg, backgroundColor: colors.background },
   pageWide: { maxWidth: 720, width: '100%', alignSelf: 'center', padding: spacing.xxl },
-  title: { fontWeight: '700', fontSize: 15, color: colors.black },
-  muted: { color: colors.gray500, marginTop: 2 },
-  soon: { color: colors.warning, fontSize: 12, marginTop: spacing.sm, fontWeight: '600' },
+  title: t.cardTitle,
+  muted: { ...t.meta, marginTop: 2 },
+  soon: { ...t.meta, color: colors.onAccentSoft, marginTop: spacing.sm },
   linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  version: {
-    textAlign: 'center',
-    color: colors.gray500,
-    fontSize: 12,
-    marginTop: spacing.xl,
-  },
+  version: { ...t.meta, textAlign: 'center', marginTop: spacing.xl },
 });

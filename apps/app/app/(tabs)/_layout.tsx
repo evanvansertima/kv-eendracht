@@ -1,7 +1,8 @@
-import { Tabs } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text } from 'react-native';
-import { useRouter } from 'expo-router';
-import { colors, spacing, MIN_TOUCH } from '../../src/theme/tokens';
+import { Tabs, useRouter } from 'expo-router';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
+import { type as t, fonts } from '../../src/theme/typography';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 
 /**
@@ -13,26 +14,27 @@ import { useBreakpoint } from '../../src/lib/useBreakpoint';
  */
 
 const TABS = [
-  { name: 'index', title: 'Home', icon: '⌂' },
-  { name: 'agenda', title: 'Agenda', icon: '▤' },
-  { name: 'toernooien', title: 'Toernooien', icon: '▲' },
-  { name: 'competitie', title: 'Competitie', icon: '≡' },
-  { name: 'community', title: 'Community', icon: '◍' },
+  { name: 'index', title: 'Home', icon: 'home', activeIcon: 'home' },
+  { name: 'agenda', title: 'Agenda', icon: 'calendar-outline', activeIcon: 'calendar' },
+  { name: 'toernooien', title: 'Toernooien', icon: 'trophy-outline', activeIcon: 'trophy' },
+  { name: 'competitie', title: 'Competitie', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
+  { name: 'community', title: 'Community', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles' },
 ] as const;
 
 function ProfileButton() {
   const router = useRouter();
-  // No session yet — the auth module lands with the login flow, and this label
-  // becomes Profiel / Beheer once a role is known.
+  // No session yet — the auth module lands with the login flow, and this label becomes
+  // Profiel / Beheer once a role is known.
   const label = 'Login';
   return (
     <Pressable
       onPress={() => router.push('/meer')}
       accessibilityRole="button"
       accessibilityLabel={`${label}, open menu`}
-      style={s.profileButton}
+      style={({ pressed }) => [s.profileButton, pressed && { opacity: 0.7 }]}
       hitSlop={8}
     >
+      <Ionicons name="person-circle-outline" size={18} color={colors.onSport} />
       <Text style={s.profileText}>{label}</Text>
     </Pressable>
   );
@@ -44,32 +46,37 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.primary },
-        headerTintColor: colors.white,
-        headerTitleStyle: { fontWeight: '800' },
+        headerStyle: { backgroundColor: colors.sport },
+        headerTintColor: colors.onSport,
+        headerTitleStyle: { fontFamily: fonts.headingBold, fontSize: 20 },
+        headerShadowVisible: false,
         headerRight: () => <ProfileButton />,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.gray500,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          backgroundColor: colors.white,
-          borderTopColor: colors.gray300,
-          // Wide screens get a taller, roomier bar rather than phone-sized targets
-          // stretched across a monitor. See ADR-0002.
-          height: isWide ? 64 : Platform.OS === 'ios' ? 84 : 64,
+          backgroundColor: colors.card,
+          borderTopColor: colors.line,
+          // Wide screens get a roomier bar rather than phone-sized targets stretched
+          // across a monitor. See ADR-0002.
+          height: isWide ? 62 : Platform.OS === 'ios' ? 84 : 64,
           paddingTop: spacing.xs,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarLabelStyle: { fontFamily: fonts.bodySemiBold, fontSize: 11 },
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
-      {TABS.map((t) => (
+      {TABS.map((tab) => (
         <Tabs.Screen
-          key={t.name}
-          name={t.name}
+          key={tab.name}
+          name={tab.name}
           options={{
-            title: t.title,
-            tabBarIcon: ({ color }) => (
-              <Text style={{ color, fontSize: 18, lineHeight: 22 }}>{t.icon}</Text>
+            title: tab.title,
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons
+                name={focused ? tab.activeIcon : tab.icon}
+                size={21}
+                color={color}
+              />
             ),
           }}
         />
@@ -81,8 +88,10 @@ export default function TabsLayout() {
 const s = StyleSheet.create({
   profileButton: {
     minHeight: MIN_TOUCH,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.lg,
   },
-  profileText: { color: colors.white, fontWeight: '700' },
+  profileText: { ...t.button, color: colors.onSport },
 });
