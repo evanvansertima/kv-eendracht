@@ -1,55 +1,136 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Card, SectionHeader } from '../../src/components/ui';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Card, SectionHeader, Button } from '../../src/components/ui';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
-import { colors, spacing } from '../../src/theme/tokens';
+import { useSession } from '../../src/lib/SessionProvider';
+import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
+
+const ROLE_LABEL: Record<string, string> = {
+  guest: 'Communitylid',
+  moderator: 'Moderator',
+  admin: 'Beheerder',
+  super_admin: 'Hoofdbeheerder',
+};
+
+function Row({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      style={({ pressed }) => [s.row, pressed && s.pressed]}
+    >
+      <Ionicons name={icon} size={20} color={colors.primary} />
+      <View style={s.flex}>
+        <Text style={t.cardTitle}>{title}</Text>
+        <Text style={t.meta}>{subtitle}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </Pressable>
+  );
+}
 
 /**
  * The menu behind the profile button. Six primary destinations would crowd a phone, so
  * login, profile and admin live here rather than as a sixth tab (spec section 6).
- *
- * Every action below is disabled until the auth module lands: there is no session yet.
- * Showing them greyed out is deliberate — it tells the club what is coming rather than
- * hiding it, and the buttons wire up without moving anything.
  */
 export default function Meer() {
   const { isWide } = useBreakpoint();
+  const router = useRouter();
+  const { user, isStaff, logout, loading } = useSession();
 
   return (
     <ScrollView contentContainerStyle={[s.page, isWide && s.pageWide]}>
-      <SectionHeader title="Meedoen" />
-      <Card>
-        <Text style={s.title}>Schermnaam kiezen</Text>
-        <Text style={s.muted}>
-          Kies een schermnaam om te reageren op het forum, te stemmen en foto&apos;s te delen.
-        </Text>
-        <Text style={s.soon}>Beschikbaar zodra inloggen werkt.</Text>
-      </Card>
+      {user ? (
+        <>
+          <SectionHeader title="Ingelogd als" />
+          <Card>
+            <View style={s.profileRow}>
+              <View style={s.avatar}>
+                <Ionicons
+                  name={user.is_anonymous ? 'person' : 'shield-checkmark'}
+                  size={22}
+                  color={colors.onSport}
+                />
+              </View>
+              <View style={s.flex}>
+                <Text style={t.cardTitle}>{user.display_name}</Text>
+                <Text style={t.meta}>
+                  {ROLE_LABEL[user.role] ?? user.role}
+                  {user.email ? ` · ${user.email}` : ''}
+                </Text>
+                {user.match_entry_rights && user.role === 'moderator' ? (
+                  <Text style={s.badge}>Mag uitslagen invoeren</Text>
+                ) : null}
+              </View>
+            </View>
+          </Card>
 
-      <SectionHeader title="Beheer" />
-      <Card>
-        <Text style={s.title}>Inloggen als beheerder</Text>
-        <Text style={s.muted}>
-          Voor het invoeren van uitslagen, spelersbeheer en de toernooibuilder.
-        </Text>
-        <Text style={s.soon}>Beschikbaar zodra inloggen werkt.</Text>
-      </Card>
+          {isStaff ? (
+            <>
+              <SectionHeader title="Beheer" />
+              <Card>
+                <Row
+                  icon="clipboard-outline"
+                  title="Beheerdashboard"
+                  subtitle="Speelavonden, uitslagen en spelers"
+                  onPress={() => router.push('/admin')}
+                />
+              </Card>
+            </>
+          ) : null}
+
+          <Button label="Uitloggen" variant="ghost" onPress={() => void logout()} />
+        </>
+      ) : (
+        <>
+          <SectionHeader title="Meedoen" />
+          <Card>
+            <Row
+              icon="chatbubbles-outline"
+              title="Schermnaam kiezen"
+              subtitle="Reageer op het forum, stem en deel foto's"
+              onPress={() => router.push('/meer/schermnaam')}
+            />
+          </Card>
+
+          <SectionHeader title="Beheer" />
+          <Card>
+            <Row
+              icon="log-in-outline"
+              title="Inloggen als beheerder"
+              subtitle="Uitslagen, spelersbeheer en toernooien"
+              onPress={() => router.push('/login')}
+            />
+          </Card>
+        </>
+      )}
 
       <SectionHeader title="Informatie" />
       <Card>
-        <View style={s.linkRow}>
-          <Text style={s.title}>Huisregels</Text>
-        </View>
-        <Text style={s.muted}>Afspraken voor het forum en foto&apos;s.</Text>
+        <Text style={t.cardTitle}>Huisregels</Text>
+        <Text style={t.meta}>Afspraken voor het forum en foto&apos;s.</Text>
       </Card>
       <Card>
-        <View style={s.linkRow}>
-          <Text style={s.title}>Privacy</Text>
-        </View>
-        <Text style={s.muted}>Hoe KV Eendracht met je gegevens omgaat.</Text>
+        <Text style={t.cardTitle}>Privacy</Text>
+        <Text style={t.meta}>Hoe KV Eendracht met je gegevens omgaat.</Text>
       </Card>
 
-      <Text style={s.version}>KV Eendracht · versie 2.0.0</Text>
+      <Text style={s.version}>
+        KV Eendracht · versie 2.0.0{loading ? ' · sessie laden…' : ''}
+      </Text>
     </ScrollView>
   );
 }
@@ -57,9 +138,37 @@ export default function Meer() {
 const s = StyleSheet.create({
   page: { padding: spacing.lg, backgroundColor: colors.background },
   pageWide: { maxWidth: 720, width: '100%', alignSelf: 'center', padding: spacing.xxl },
-  title: t.cardTitle,
-  muted: { ...t.meta, marginTop: 2 },
-  soon: { ...t.meta, color: colors.onAccentSoft, marginTop: spacing.sm },
-  linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  flex: { flex: 1 },
+
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: MIN_TOUCH,
+    paddingVertical: spacing.xs,
+  },
+  pressed: { opacity: 0.65 },
+
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.full,
+    backgroundColor: colors.sport,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    ...t.meta,
+    color: colors.onAccentSoft,
+    backgroundColor: colors.accentSoft,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.full,
+    marginTop: spacing.xs,
+    overflow: 'hidden',
+  },
+
   version: { ...t.meta, textAlign: 'center', marginTop: spacing.xl },
 });

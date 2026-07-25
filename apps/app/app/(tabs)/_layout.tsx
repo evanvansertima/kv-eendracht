@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, spacing, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t, fonts } from '../../src/theme/typography';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
+import { useSession } from '../../src/lib/SessionProvider';
 
 /**
  * Five bottom tabs plus a profile button in every header.
@@ -23,9 +24,16 @@ const TABS = [
 
 function ProfileButton() {
   const router = useRouter();
-  // No session yet — the auth module lands with the login flow, and this label becomes
-  // Profiel / Beheer once a role is known.
-  const label = 'Login';
+  const { user, isStaff } = useSession();
+
+  // Label tracks the session, per spec section 6: Login -> Profiel -> Beheer.
+  const label = !user ? 'Login' : isStaff ? 'Beheer' : 'Profiel';
+  const icon = !user
+    ? 'person-circle-outline'
+    : isStaff
+      ? 'settings-outline'
+      : 'person-circle';
+
   return (
     <Pressable
       onPress={() => router.push('/meer')}
@@ -34,7 +42,7 @@ function ProfileButton() {
       style={({ pressed }) => [s.profileButton, pressed && { opacity: 0.7 }]}
       hitSlop={8}
     >
-      <Ionicons name="person-circle-outline" size={18} color={colors.onSport} />
+      <Ionicons name={icon} size={18} color={colors.onSport} />
       <Text style={s.profileText}>{label}</Text>
     </Pressable>
   );

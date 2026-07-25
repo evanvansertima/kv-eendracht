@@ -15,6 +15,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { colors } from '../src/theme/tokens';
 import { fonts } from '../src/theme/typography';
+import { SessionProvider } from '../src/lib/SessionProvider';
 
 // Hold the splash until the fonts are ready, so nothing renders in a fallback system face
 // and then reflows once Barlow and Inter land.
@@ -39,7 +40,7 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <>
+    <SessionProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -51,8 +52,13 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* admin/ has its own Stack with its own header; without this the group renders
+            a second header above it. */}
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
         <Stack.Screen name="meer/index" options={{ title: 'Meer' }} />
+        <Stack.Screen name="meer/schermnaam" options={{ title: 'Schermnaam' }} />
+        <Stack.Screen name="login" options={{ title: 'Inloggen' }} />
       </Stack>
-    </>
+    </SessionProvider>
   );
 }
