@@ -1,0 +1,11 @@
+{
+  "extends": "@kv/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "module": "NodeNext",
+    "moduleResolution": "nodenext"
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.mjs"]
+}

@@ -67,16 +67,26 @@ regression guard proving the maths survived the move.
 ## Known trap: pnpm and Expo
 
 pnpm's default symlinked `node_modules` breaks the React Native Metro bundler, which does not
-resolve symlinks the way Node does. The repository sets:
+resolve symlinks the way Node does. Without a fix, `expo start` fails with errors like
+`Unable to resolve module @babel/runtime/helpers/interopRequireDefault` — which read as a
+missing dependency but are a linking problem, so the obvious fix (installing the package)
+changes nothing.
 
-```
-# .npmrc
-node-linker=hoisted
+The setting lives in **`pnpm-workspace.yaml`**:
+
+```yaml
+nodeLinker: hoisted
 ```
 
 This gives npm-style flat `node_modules` while keeping pnpm's workspace linking and fast,
-space-efficient installs. Without it, `expo start` fails with confusing module-resolution
-errors that look like missing dependencies.
+space-efficient installs.
+
+> **It is not `.npmrc`.** This ADR originally specified `node-linker=hoisted` in `.npmrc`,
+> which is where it lived until pnpm 10 moved these options into `pnpm-workspace.yaml`. An
+> `.npmrc` entry is now **silently ignored** — no warning, no error. The symptom is
+> particularly misleading: `pnpm install` reports success, `pnpm config get node-linker`
+> returns `undefined`, and Expo still fails. Confirmed on pnpm 11.17.0; corrected here after
+> hitting it.
 
 ## Repository location
 

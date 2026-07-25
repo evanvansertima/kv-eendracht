@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "KV Eendracht",
+    "slug": "kv-eendracht",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "scheme": "kveendracht",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "locales": {},
+    "ios": {
+      "bundleIdentifier": "nl.kveendracht.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "nl.kveendracht.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

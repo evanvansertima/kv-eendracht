@@ -1,6 +1,15 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Metro, React Native's bundler, does not resolve pnpm's symlinked node_modules, so
+# Expo fails with errors like "Unable to resolve module @babel/runtime/helpers/..."
+# that look like a missing dependency but are a linking problem.
+#
+# This setting used to live in .npmrc as `node-linker=hoisted`. pnpm 10 moved these
+# options into this file, and an .npmrc entry is now silently ignored — `pnpm config
+# get node-linker` returns undefined and the install looks fine while Expo still breaks.
+nodeLinker: hoisted
 # Build scripts are blocked by default. esbuild is a Vitest dependency and its
 # install step links the platform-native binary, without which tests cannot run.
 allowBuilds:

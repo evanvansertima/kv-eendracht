@@ -16,7 +16,14 @@ psql -v ON_ERROR_STOP=1 \
      --username "$POSTGRES_USER" \
      --dbname "$POSTGRES_DB" \
      -v migrator_password="'${KV_MIGRATOR_PASSWORD}'" \
-     -v api_password="'${KV_API_PASSWORD}'" <<-'EOSQL'
+     -v api_password="'${KV_API_PASSWORD}'" \
+     -v db_name="${POSTGRES_DB}" <<-'EOSQL'
+
+    -- Installing an extension requires superuser, and kv_migrator deliberately is not
+    -- one. So it happens here, during bootstrap, as POSTGRES_USER. The migrations keep
+    -- their `create extension if not exists pgcrypto` line, which is then a harmless
+    -- no-op that needs no elevated rights.
+    create extension if not exists "pgcrypto";
 
     -- Owns the schema and runs all DDL. NOT a superuser: migrations should not be able
     -- to reach outside this database either.
@@ -28,9 +35,25 @@ psql -v ON_ERROR_STOP=1 \
     create role kv_api with login password :api_password nosuperuser nobypassrls
                            nocreatedb nocreaterole noinherit;
 
+    -- Supabase ships `anon` and `authenticated` as built-in roles, and the ported RLS
+    -- migration grants SELECT on three public views to them. Recreating them as NOLOGIN
+    -- placeholders keeps that SQL byte-identical to v1, which matters when diffing
+    -- against the original to debug a policy.
+    --
+    -- They are vestigial here: nothing connects as them, because our API always connects
+    -- as kv_api and identity comes from request.jwt.claims rather than the database role
+    -- (see ADR-0003). NOLOGIN makes that structural — they cannot be connected to at all.
+    create role anon nologin;
+    create role authenticated nologin;
+
     -- kv_migrator owns public; kv_api only uses it.
     alter schema public owner to kv_migrator;
     grant usage on schema public to kv_api;
+
+    -- Owning a schema is not enough to recreate it after a drop: that needs CREATE on
+    -- the database. `db.mjs reset` drops and rebuilds public and auth, so the DDL role
+    -- needs this. kv_api deliberately does not get it.
+    grant create on database :"db_name" to kv_migrator;
 
     -- Future tables created by kv_migrator are automatically usable by kv_api,
     -- so a new migration cannot forget to grant access.
