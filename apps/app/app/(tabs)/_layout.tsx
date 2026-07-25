@@ -1,7 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
+import { colors, spacing, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t, fonts } from '../../src/theme/typography';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 

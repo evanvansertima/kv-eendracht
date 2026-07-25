@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { api } from '../../src/lib/api';
 import { useAsync } from '../../src/lib/useAsync';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';

@@ -2,6 +2,8 @@ import Fastify, { type FastifyError } from 'fastify';
 import cors from '@fastify/cors';
 import { loadConfig } from './config.ts';
 import { registerRoutes } from './routes.ts';
+import { registerAuthRoutes } from './auth/routes.ts';
+import { attachClaims } from './auth/middleware.ts';
 import { closePool } from './db.ts';
 
 // Node reads .env natively; no dotenv dependency needed.
@@ -28,6 +30,11 @@ await app.register(cors, {
   credentials: true,
 });
 
+// Resolves the bearer token into req.claims for every route. It never rejects: a public
+// read with no token is valid, and RLS decides what it may see.
+app.addHook('preHandler', attachClaims(config.JWT_SECRET));
+
+registerAuthRoutes(app, config);
 registerRoutes(app, config);
 
 app.setErrorHandler((err: FastifyError, _req, reply) => {

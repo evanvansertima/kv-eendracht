@@ -30,7 +30,6 @@ export function useAsync<T>(
       });
     }
     // fn is recreated per render by callers; deps is the real dependency list.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(() => {

@@ -1,11 +1,20 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import globals from 'globals';
 
 /** Base configuration shared by every workspace. */
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      // Without this every `process`, `console` and `URL` reads as an undefined
+      // variable. The domain package needs none of them, but declaring it here costs
+      // nothing and spares each workspace repeating it.
+      globals: { ...globals.node, ...globals.es2023 },
+    },
     rules: {
       '@typescript-eslint/no-unused-vars': [
         'error',

@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Card, SectionHeader, Button } from '../../src/components/ui';
+import { Card, SectionHeader } from '../../src/components/ui';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { colors, spacing } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
