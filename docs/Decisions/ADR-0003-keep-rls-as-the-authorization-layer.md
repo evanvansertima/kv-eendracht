@@ -40,11 +40,23 @@ own database. `auth.uid()` reads the request's JWT claims exactly as Supabase's 
 
 ```sql
 create function auth.uid() returns uuid language sql stable as $$
-  select nullif(current_setting('request.jwt.claims', true)::jsonb->>'sub','')::uuid
+  select nullif(
+           nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub',
+           ''
+         )::uuid
 $$;
 ```
 
 All 43 existing call sites keep working unchanged.
+
+> **The nested `nullif` ordering is load-bearing, and the obvious version is wrong.**
+> Guarding only the extracted claim —
+> `nullif(current_setting(...)::jsonb ->> 'sub', '')` — lets the cast run first. Once a
+> transaction-local setting has been reset, `current_setting(..., true)` returns an **empty
+> string, not NULL**, and `''::jsonb` raises `invalid input syntax for type json`. That
+> makes every unauthenticated request fail with a parse error instead of resolving to NULL.
+> Caught by running it against Postgres 17 before porting the schema; the correct form is
+> in `apps/api/src/db/migrations/0000_auth_shim.sql`.
 
 **2. A transaction-scoped claims interceptor.** Every request runs inside one transaction that
 first sets the claims:

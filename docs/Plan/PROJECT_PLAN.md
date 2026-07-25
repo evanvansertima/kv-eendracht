@@ -25,19 +25,50 @@ existing React Native codebase. Reasoning in
 - ✅ Repository at `~/Developer/kv-eendracht`, `origin` set to
   `git@github.com:evanvansertima/kv-eendracht.git`
 - ✅ GitHub host keys verified against published fingerprints and trusted
-- ⚠️ **SSH key not yet registered on GitHub** — `Permission denied (publickey)`. Nothing can be
-  pushed until the key is added to the account. See [[README]].
+- ✅ SSH key registered on GitHub; pushes working
 - ✅ Obsidian vault: MOC, 6 ADRs, architecture notes, domain notes, linked and tagged
-- 🔄 Monorepo skeleton — pnpm workspaces, Turborepo, shared configs
-- ⬜ `packages/domain` ported verbatim, 17/17 verification passing
-- ⬜ `infra/docker-compose.yml` — postgres, minio, mailpit, adminer
-- ⬜ GitHub Actions CI
-- ⚠️ **Docker not installed on this machine** — `docker: command not found`. Install OrbStack
-  or Docker Desktop; nothing in this phase can be verified until then.
+- ✅ Monorepo skeleton — pnpm workspaces, Turborepo, shared configs
+- ✅ `packages/domain` ported verbatim — lint and typecheck clean, 57/57 tests,
+  **17/17 verification passing**
+- ✅ `infra/docker-compose.yml` — postgres 17, minio + buckets, mailpit, adminer;
+  **all five services verified healthy**
+- ✅ Three database roles created and verified: `kv_api` is neither superuser nor
+  `BYPASSRLS`, and both schemas are owned by `kv_migrator`
+- ✅ GitHub Actions CI
 
-## Phase 1 — Database ⬜
+### Verified end to end
 
-- ⬜ `0000_auth_shim.sql`: `auth` schema, `auth.users`, `auth.uid()`, `auth.email()`
+RLS was proven against the running database before porting any schema. Six assertions,
+all passing as `kv_api`:
+
+| # | Assertion | Result |
+|---|---|---|
+| 1 | No claims set → zero rows visible | ✅ |
+| 2 | Claims set → only that user's rows | ✅ |
+| 3 | After commit, claims do not leak on the same connection | ✅ |
+| 4 | Different claims on the same connection → correct isolation | ✅ |
+| 5 | `kv_api` cannot disable row level security | ✅ |
+| 6 | `kv_api` cannot read system catalogs | ✅ |
+
+Assertions 3 and 4 are the ones that make connection pooling safe.
+
+### Two bugs found by actually running it
+
+1. **Role init silently skipped.** `KV_MIGRATOR_PASSWORD` and `KV_API_PASSWORD` were read
+   from `.env` for compose substitution but never passed *into* the Postgres container, so
+   `01-roles.sh` aborted. Because a failed init still leaves a populated data directory,
+   Postgres then reported **healthy** with none of the roles present — the exact silent
+   failure [[ADR-0003-keep-rls-as-the-authorization-layer]] warns about. Fixed by passing
+   the variables, and the healthcheck now asserts the `kv_api` role exists so it can never
+   pass quietly again.
+2. **`auth.uid()` raised on unauthenticated requests.** See the boxed note in
+   [[ADR-0003-keep-rls-as-the-authorization-layer]] — `current_setting(..., true)` returns
+   `''`, not NULL, once a transaction-local setting is reset.
+
+## Phase 1 — Database 🔄
+
+- ✅ `0000_auth_shim.sql`: `auth` schema, `auth.users`, `auth.uid()`, `auth.email()`,
+  `auth.jwt()`, `auth.role()` — applied and behaviour-verified against Postgres 17
 - ⬜ Port the three v1 migrations, dropping only the storage and realtime blocks
 - ⬜ `pg_notify` triggers on `matches`, `match_results`, `standings`
 - ⬜ Three database roles: `kv_owner`, `kv_migrator`, `kv_api` — see [[INFRA]]

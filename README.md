@@ -64,19 +64,9 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm --filter domain verify
 `pnpm --filter domain verify` runs 17 dependency-free checks on the draw and standings maths,
 including a sweep of every player count from 2 to 100. It must stay at 17/17.
 
-## GitHub setup
+## GitHub
 
-The remote is `git@github.com:evanvansertima/kv-eendracht.git`. GitHub's host keys are already
-trusted, but **the SSH key on this machine is not yet registered on the account**, so pushes
-fail with `Permission denied (publickey)`.
-
-To fix, add this public key at GitHub → Settings → SSH and GPG keys → New SSH key:
-
-```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEAemcrJOyl2i/Lq91/78lIBiDTxqEQUgRiIzN5PP9iO eserti@Evans-Mac.local
-```
-
-Then verify:
+The remote is `git@github.com:evanvansertima/kv-eendracht.git` over SSH. Verify access with:
 
 ```bash
 ssh -T git@github.com
