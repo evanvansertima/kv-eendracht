@@ -1,4 +1,15 @@
+---
+title: Architecture — v1 (Supabase, superseded)
+project: kv-eendracht
+status: superseded
+tags: [architecture, supabase, v1, historical]
+updated: 2026-07-25
+---
 # Technisch architectuurplan — KV Eendracht
+
+> **Superseded.** This describes the v1 Supabase Cloud architecture, kept for context.
+> Current architecture: [[ARCHITECTURE]]. Why it changed:
+> [[ADR-0001-own-api-instead-of-supabase]].
 
 ## 1. Functionele analyse (samenvatting)
 
@@ -102,3 +113,9 @@ sessie. Deeplink-schema: `kveendracht://`.
 Latere uitbreidbaarheid is ingebouwd voor: kalenderkoppeling (agenda-items
 hebben al alle velden voor ICS/Google), pushnotificaties (expo-notifications),
 CSV-import (aparte edge function).
+
+## Related
+
+- [[ARCHITECTURE]]
+- [[ADR-0001-own-api-instead-of-supabase]]
+- [[PROJECT_PLAN-v1]]

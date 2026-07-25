@@ -1,4 +1,14 @@
+---
+title: Screens and user flows
+project: kv-eendracht
+status: current
+tags: [screens, routes, navigation, flows, ux]
+updated: 2026-07-25
+---
 # Schermen en gebruikersstromen — KV Eendracht
+
+> Route map and flows. Still accurate; [[ADR-0002-react-native-on-all-platforms]] adds a
+> web target to these same routes, with desktop layouts above the tablet breakpoint.
 
 ## Navigatiestructuur
 
@@ -63,3 +73,11 @@ winnaars automatisch doorgezet; verliezers 1e omloop → herkansing (indien aan)
 Elk data-scherm heeft: skeleton (laden) → inhoud | EmptyState (icoon + NL-tekst
 + actie) | ErrorState (opnieuw proberen) + offline-banner met "laatst
 bijgewerkt". Statuslabels: LIVE / BINNENKORT / AFGELOPEN / CONCEPT / VOL.
+
+## Related
+
+- [[ARCHITECTURE]]
+- [[ADR-0002-react-native-on-all-platforms]]
+- [[Lotingsvormen]]
+- [[Telling-en-standen]]
+- [[KV-EENDRACHT-APP-SPEC#6. Screen map and user flows]]

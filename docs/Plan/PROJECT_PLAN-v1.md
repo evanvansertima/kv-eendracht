@@ -1,4 +1,14 @@
+---
+title: Project plan — v1 (superseded)
+project: kv-eendracht
+status: superseded
+tags: [plan, v1, historical, progress]
+updated: 2026-07-25
+---
 # PROJECT_PLAN.md — KV Eendracht
+
+> **Superseded.** The v1 phase log, kept as a record of what was built and decided.
+> Current plan: [[PROJECT_PLAN]].
 
 Voortgangsregistratie. Status: ✅ klaar · 🔄 bezig · ⬜ open · ⚠️ beperking
 
@@ -83,3 +93,9 @@ Voortgangsregistratie. Status: ✅ klaar · 🔄 bezig · ⬜ open · ⚠️ bep
 - Expo SDK 54-versies; `npx expo install --fix` als vangnet (README).
 - N=5 blijkt wél oplosbaar (1 drietal + 1 tweetal); onoplosbaar zijn 2, 3 en 7 —
   daarvoor toont de app een reservevoorstel.
+
+## Related
+
+- [[PROJECT_PLAN]]
+- [[ARCHITECTURE-v1-supabase]]
+- [[KV-EENDRACHT-APP-SPEC]]

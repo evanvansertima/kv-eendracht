@@ -1,4 +1,16 @@
+---
+title: Database design
+project: kv-eendracht
+status: current
+tags: [database, schema, rls, postgres, rpc]
+updated: 2026-07-25
+---
 # Databaseontwerp — KV Eendracht
+
+> Schema reference. The tables, views and RPCs described here are **unchanged** by the
+> move off Supabase — only the surrounding services were replaced. See
+> [[ADR-0001-own-api-instead-of-supabase]] and
+> [[ADR-0003-keep-rls-as-the-authorization-layer]] for what did change.
 
 Bron van waarheid: `supabase/migrations/*.sql`. Dit document beschrijft opzet,
 relaties en het RLS-toegangsmodel.
@@ -100,3 +112,12 @@ relaties en het RLS-toegangsmodel.
 Storage: bucket `media` — lezen publiek voor goedgekeurde paden, schrijven
 alleen eigen map `auth.uid()/…` met bestandstype-/groottecheck; bucket
 `news` — lezen publiek, schrijven beheer.
+
+## Related
+
+- [[ARCHITECTURE]]
+- [[API]]
+- [[INFRA]]
+- [[Telling-en-standen]]
+- [[ADR-0003-keep-rls-as-the-authorization-layer]]
+- [[KV-EENDRACHT-APP-SPEC#7. Data model]]
