@@ -1,49 +1,41 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Card, SectionHeader } from '../../src/components/ui';
+import { games } from '../../src/lib/api';
+import { useAsync } from '../../src/lib/useAsync';
+import { Card, SectionHeader, Loading, ErrorState, EmptyState } from '../../src/components/ui';
 import { useSession } from '../../src/lib/SessionProvider';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
-import { colors, spacing, radii } from '../../src/theme/tokens';
+import { formatDate } from '../../src/lib/dates';
+import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
-
-/**
- * Beheer dashboard.
- *
- * A shell for now: the sections below arrive with the games, calendar and community
- * write layers. They are listed rather than hidden so the club can see what is coming,
- * and so the navigation shape is settled before the screens fill in.
- */
-const SECTIONS = [
-  {
-    icon: 'calendar-number-outline',
-    title: 'Speelavonden',
-    subtitle: 'Partijen, uitslagen invoeren en afronden',
-    ready: false,
-  },
-  {
-    icon: 'people-outline',
-    title: 'Spelers',
-    subtitle: 'Toevoegen, bewerken en archiveren',
-    ready: false,
-  },
-  {
-    icon: 'trophy-outline',
-    title: 'Toernooien',
-    subtitle: 'Toernooibuilder met loting',
-    ready: false,
-  },
-  { icon: 'calendar-outline', title: 'Agenda', subtitle: 'Activiteiten beheren', ready: false },
-  {
-    icon: 'shield-checkmark-outline',
-    title: 'Moderatie',
-    subtitle: 'Wachtrij, meldingen en blokkades',
-    ready: false,
-  },
-] as const;
 
 export default function AdminDashboard() {
   const { user, canEnterResults } = useSession();
   const { isWide } = useBreakpoint();
+  const router = useRouter();
+
+  const load = useCallback(async () => {
+    const competitions = await games.competitions();
+    const active = competitions[0];
+    const rounds = active ? await games.rounds(active.id) : [];
+    return { competitions, active, rounds };
+  }, []);
+  const state = useAsync(load, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      state.reload();
+    }, []),
+  );
+
+  if (state.phase === 'loading') return <Loading />;
+  if (state.phase === 'error')
+    return <ErrorState message={state.message} onRetry={state.reload} />;
+
+  const { active, rounds } = state.data;
+  const open = rounds.filter((r) => r.status === 'open');
 
   return (
     <ScrollView contentContainerStyle={[s.page, isWide && s.pageWide]}>
@@ -55,31 +47,111 @@ export default function AdminDashboard() {
         </Text>
       </View>
 
-      <SectionHeader title="Onderdelen" />
-      <View style={isWide ? s.grid : undefined}>
-        {SECTIONS.map((sec) => (
-          <View key={sec.title} style={isWide ? s.gridItem : undefined}>
-            <Card>
-              <View style={s.row}>
-                <Ionicons name={sec.icon} size={20} color={colors.primary} />
-                <View style={s.flex}>
-                  <Text style={t.cardTitle}>{sec.title}</Text>
-                  <Text style={t.meta}>{sec.subtitle}</Text>
-                </View>
-                {!sec.ready ? <Text style={s.soon}>Binnenkort</Text> : null}
-              </View>
-            </Card>
+      {active ? (
+        <>
+          <SectionHeader title="Open speelavonden" />
+          {open.length === 0 ? (
+            <EmptyState
+              title="Geen open speelavond"
+              hint="Alle speelavonden zijn afgerond."
+            />
+          ) : (
+            open.map((r) => (
+              <Pressable
+                key={r.id}
+                onPress={() => router.push(`/admin/speelavond/${r.id}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`Speelavond ${r.round_no}`}
+                style={({ pressed }) => [pressed && s.pressed]}
+              >
+                <Card>
+                  <View style={s.row}>
+                    <View style={s.badge}>
+                      <Text style={s.badgeText}>{r.round_no}</Text>
+                    </View>
+                    <View style={s.flex}>
+                      <Text style={t.cardTitle}>Speelavond {r.round_no}</Text>
+                      <Text style={t.meta}>
+                        {r.played_on ? formatDate(r.played_on) : 'Datum onbekend'} ·{' '}
+                        {r.result_count}/{r.match_count} uitslagen
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                  </View>
+                </Card>
+              </Pressable>
+            ))
+          )}
+
+          <SectionHeader title="Afgeronde speelavonden" />
+          {rounds
+            .filter((r) => r.status === 'finalized')
+            .slice(0, 5)
+            .map((r) => (
+              <Pressable
+                key={r.id}
+                onPress={() => router.push(`/admin/speelavond/${r.id}`)}
+                accessibilityRole="button"
+                accessibilityLabel={`Speelavond ${r.round_no}, afgerond`}
+                style={({ pressed }) => [pressed && s.pressed]}
+              >
+                <Card>
+                  <View style={s.row}>
+                    <Ionicons name="checkmark-circle" size={20} color={colors.gain} />
+                    <View style={s.flex}>
+                      <Text style={t.cardTitle}>Speelavond {r.round_no}</Text>
+                      <Text style={t.meta}>
+                        {r.played_on ? formatDate(r.played_on) : ''} · {r.result_count} uitslagen
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
+              </Pressable>
+            ))}
+        </>
+      ) : (
+        <EmptyState title="Geen competitie gevonden" />
+      )}
+
+      <SectionHeader title="Overig" />
+      <Pressable
+        onPress={() => router.push('/admin/spelers')}
+        accessibilityRole="button"
+        accessibilityLabel="Spelers beheren"
+        style={({ pressed }) => [pressed && s.pressed]}
+      >
+        <Card>
+          <View style={s.row}>
+            <Ionicons name="people-outline" size={20} color={colors.primary} />
+            <View style={s.flex}>
+              <Text style={t.cardTitle}>Spelers</Text>
+              <Text style={t.meta}>Zoeken, bewerken en archiveren</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </View>
-        ))}
-      </View>
+        </Card>
+      </Pressable>
+
+      {(['Toernooien', 'Agenda', 'Moderatie'] as const).map((label) => (
+        <Card key={label}>
+          <View style={s.row}>
+            <Ionicons name="ellipse-outline" size={20} color={colors.textMuted} />
+            <View style={s.flex}>
+              <Text style={t.cardTitle}>{label}</Text>
+            </View>
+            <Text style={s.soon}>Binnenkort</Text>
+          </View>
+        </Card>
+      ))}
     </ScrollView>
   );
 }
 
 const s = StyleSheet.create({
-  page: { padding: spacing.lg, backgroundColor: colors.background },
-  pageWide: { maxWidth: 1000, width: '100%', alignSelf: 'center', padding: spacing.xxl },
+  page: { padding: spacing.lg, backgroundColor: colors.background, paddingBottom: spacing.xxl },
+  pageWide: { maxWidth: 900, width: '100%', alignSelf: 'center', padding: spacing.xxl },
   flex: { flex: 1 },
+  pressed: { opacity: 0.75 },
 
   hero: {
     backgroundColor: colors.sport,
@@ -91,10 +163,16 @@ const s = StyleSheet.create({
   heroTitle: { ...t.hero, color: colors.onSport, fontSize: 30, lineHeight: 34 },
   heroMeta: { ...t.meta, color: colors.onSportMuted, marginTop: spacing.xs },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  gridItem: { flexBasis: '48%', flexGrow: 1 },
-
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: MIN_TOUCH },
+  badge: {
+    width: 34,
+    height: 34,
+    borderRadius: radii.full,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { ...t.tableNumLead, color: colors.primary },
   soon: {
     ...t.chip,
     color: colors.onAccentSoft,

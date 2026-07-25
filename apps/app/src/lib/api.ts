@@ -276,6 +276,126 @@ export const api = {
   activePoll: () => request<{ poll: Poll | null }>('/polls/active').then((r) => r.poll),
 };
 
+// ---------------------------------------------------------------- games (admin)
+
+export type Competition = {
+  id: string;
+  name: string;
+  category: string | null;
+  status: string;
+  season_name: string | null;
+  player_count: number;
+};
+
+export type Round = {
+  id: string;
+  round_no: number;
+  played_on: string | null;
+  status: 'open' | 'finalized';
+  finalized_at: string | null;
+  match_count: number;
+  result_count: number;
+};
+
+export type RoundMatch = {
+  id: string;
+  match_no: number;
+  court: number | null;
+  status: string;
+  red_no: number | null;
+  white_no: number | null;
+  red_players: string | null;
+  white_players: string | null;
+  eersten_red: number | null;
+  eersten_white: number | null;
+  winner: 'red' | 'white' | 'draw' | null;
+};
+
+export type RoundDetail = {
+  round: Round & { competition_id: string; competition_name: string };
+  matches: RoundMatch[];
+};
+
+export type PreviewRow = { player_id: string; display_name: string; current_status: string };
+
+export type AdminPlayer = {
+  id: string;
+  display_name: string;
+  first_name: string;
+  infix: string | null;
+  last_name: string;
+  skill_level: 'A' | 'B' | 'C' | null;
+  gender: 'dame' | 'heer' | 'anders' | null;
+  club: string | null;
+  is_active: boolean;
+  phone: string | null;
+  email: string | null;
+  archived_at: string | null;
+};
+
+export const games = {
+  competitions: () => request<{ items: Competition[] }>('/competitions').then((r) => r.items),
+
+  rounds: (competitionId: string) =>
+    request<{ items: Round[] }>(`/competitions/${competitionId}/rounds`).then((r) => r.items),
+
+  createRound: (competitionId: string, playedOn: string) =>
+    request<{ id: string; round_no: number }>(`/competitions/${competitionId}/rounds`, {
+      method: 'POST',
+      body: JSON.stringify({ played_on: playedOn }),
+    }),
+
+  round: (roundId: string) => request<RoundDetail>(`/rounds/${roundId}`),
+
+  draw: (roundId: string, seed: number, playerIds: string[], teams?: unknown) =>
+    request<{ seed: number; teams: number; matches: number; reserves: { name: string; reason: string }[]; messages: string[] }>(
+      `/rounds/${roundId}/draw`,
+      { method: 'POST', body: JSON.stringify({ seed, player_ids: playerIds, teams }) },
+    ),
+
+  /**
+   * Enter a result. `clientMutationId` must be stable across retries of the SAME entry —
+   * that is what makes a resend after a dropped connection safe.
+   */
+  enterResult: (
+    matchId: string,
+    input: { eersten_red: number; eersten_white: number; note?: string | null },
+    clientMutationId: string,
+  ) =>
+    request<{ result_id: string; winner: string }>(`/matches/${matchId}/result`, {
+      method: 'POST',
+      body: JSON.stringify({ ...input, client_mutation_id: clientMutationId }),
+    }),
+
+  finalizePreview: (roundId: string) =>
+    request<{ items: PreviewRow[]; groups: Record<string, PreviewRow[]> }>(
+      `/rounds/${roundId}/finalize-preview`,
+    ),
+
+  finalize: (roundId: string) =>
+    request<{ ok: boolean }>(`/rounds/${roundId}/finalize`, { method: 'POST' }),
+
+  reopen: (roundId: string) =>
+    request<{ ok: boolean }>(`/rounds/${roundId}/reopen`, { method: 'POST' }),
+
+  setAttendance: (roundId: string, playerId: string, status: string, note?: string) =>
+    request<{ id: string; status: string; source: string }>(
+      `/rounds/${roundId}/attendance/${playerId}`,
+      { method: 'PUT', body: JSON.stringify({ status, note }) },
+    ),
+
+  recalculate: (competitionId: string) =>
+    request<{ ok: boolean }>(`/competitions/${competitionId}/recalculate`, { method: 'POST' }),
+
+  players: (search?: string) =>
+    request<{ items: AdminPlayer[] }>(
+      `/admin/players${search ? `?search=${encodeURIComponent(search)}` : ''}`,
+    ).then((r) => r.items),
+
+  archivePlayer: (id: string) =>
+    request<{ ok: boolean }>(`/admin/players/${id}/archive`, { method: 'POST' }),
+};
+
 /** Dutch labels for the sport enums. Kept here so screens never show raw enum values. */
 export const SYSTEM_LABELS: Record<string, string> = {
   knockout: 'Knock-out',
