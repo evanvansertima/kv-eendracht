@@ -132,16 +132,46 @@ export default function AdminDashboard() {
         </Card>
       </Pressable>
 
-      {(['Toernooien', 'Agenda', 'Moderatie'] as const).map((label) => (
-        <Card key={label}>
-          <View style={s.row}>
-            <Ionicons name="ellipse-outline" size={20} color={colors.textMuted} />
-            <View style={s.flex}>
-              <Text style={t.cardTitle}>{label}</Text>
+      {(
+        [
+          {
+            label: 'Toernooien',
+            sub: 'Toernooibuilder met loting',
+            href: '/admin/toernooi/nieuw',
+            icon: 'trophy-outline',
+          },
+          {
+            label: 'Agenda',
+            sub: 'Activiteiten beheren',
+            href: '/admin/agenda',
+            icon: 'calendar-outline',
+          },
+          {
+            label: 'Moderatie',
+            sub: 'Wachtrij en meldingen',
+            href: '/admin/moderatie',
+            icon: 'shield-checkmark-outline',
+          },
+        ] as const
+      ).map((item) => (
+        <Pressable
+          key={item.label}
+          onPress={() => router.push(item.href)}
+          accessibilityRole="button"
+          accessibilityLabel={item.label}
+          style={({ pressed }) => [pressed && s.pressed]}
+        >
+          <Card>
+            <View style={s.row}>
+              <Ionicons name={item.icon} size={20} color={colors.primary} />
+              <View style={s.flex}>
+                <Text style={t.cardTitle}>{item.label}</Text>
+                <Text style={t.meta}>{item.sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </View>
-            <Text style={s.soon}>Binnenkort</Text>
-          </View>
-        </Card>
+          </Card>
+        </Pressable>
       ))}
     </ScrollView>
   );

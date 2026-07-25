@@ -39,6 +39,9 @@ export default function AdminLayout() {
       <Stack.Screen name="spelers" options={{ title: 'Spelers' }} />
       <Stack.Screen name="speelavond/[id]" options={{ title: 'Speelavond' }} />
       <Stack.Screen name="uitslag/[matchId]" options={{ title: 'Uitslag invoeren' }} />
+      <Stack.Screen name="toernooi/nieuw" options={{ title: 'Nieuw toernooi' }} />
+      <Stack.Screen name="agenda" options={{ title: 'Agenda' }} />
+      <Stack.Screen name="moderatie" options={{ title: 'Moderatie' }} />
     </Stack>
   );
 }

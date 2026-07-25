@@ -4,6 +4,9 @@ import { loadConfig } from './config.ts';
 import { registerRoutes } from './routes.ts';
 import { registerAuthRoutes } from './auth/routes.ts';
 import { registerGameRoutes } from './games/routes.ts';
+import { registerTournamentRoutes } from './tournaments/routes.ts';
+import { registerContentRoutes } from './content/routes.ts';
+import { registerCommunityRoutes } from './community/routes.ts';
 import { attachClaims } from './auth/middleware.ts';
 import { closePool } from './db.ts';
 
@@ -37,6 +40,9 @@ app.addHook('preHandler', attachClaims(config.JWT_SECRET));
 
 registerAuthRoutes(app, config);
 registerGameRoutes(app, config);
+registerTournamentRoutes(app, config);
+registerContentRoutes(app, config);
+registerCommunityRoutes(app, config);
 registerRoutes(app, config);
 
 app.setErrorHandler((err: FastifyError, _req, reply) => {

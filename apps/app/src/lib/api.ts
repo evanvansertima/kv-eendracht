@@ -396,6 +396,146 @@ export const games = {
     request<{ ok: boolean }>(`/admin/players/${id}/archive`, { method: 'POST' }),
 };
 
+// ---------------------------------------------------------------- tournaments, agenda, moderation
+
+export type DrawPreview = {
+  ok: boolean;
+  seed: number;
+  messages: string[];
+  teams: { team_no: number; players: { id: string; display_name: string }[] }[];
+  reserves: { id: string; display_name: string; reason: string }[];
+};
+
+export type AdminAgendaEvent = {
+  id: string;
+  title: string;
+  description: string | null;
+  event_type: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  location: string | null;
+  is_published: boolean;
+};
+
+export type QueueItem = {
+  subject_type: string;
+  subject_id: string;
+  preview: string;
+  created_at: string;
+};
+
+export type ReportItem = {
+  id: string;
+  subject_type: string;
+  subject_id: string;
+  reason: string;
+  status: string;
+  created_at: string;
+};
+
+export const tournaments = {
+  create: (input: {
+    name: string;
+    played_on: string;
+    location?: string | null;
+    match_system: string;
+    formation_category: string;
+  }) =>
+    request<{ id: string; name: string; status: string }>('/tournaments', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  detail: (id: string) =>
+    request<{
+      tournament: Tournament & { draw_seed: number | null };
+      teams: { id: string; team_no: number; players: string | null }[];
+      matches: { id: string; bracket: string; round_no: number; match_no: number }[];
+    }>(`/tournaments/${id}`),
+
+  /** Draws without persisting, so the wizard can re-draw freely. */
+  preview: (id: string, seed: number, playerIds: string[]) =>
+    request<DrawPreview>(`/tournaments/${id}/draw-preview`, {
+      method: 'POST',
+      body: JSON.stringify({ seed, player_ids: playerIds }),
+    }),
+
+  /** Publishes. The server re-runs the draw from the seed and rejects a mismatch. */
+  publish: (
+    id: string,
+    seed: number,
+    playerIds: string[],
+    teams: { team_no: number; player_ids: string[] }[],
+  ) =>
+    request<{ seed: number; teams: number; matches: number; messages: string[] }>(
+      `/tournaments/${id}/publish`,
+      { method: 'POST', body: JSON.stringify({ seed, player_ids: playerIds, teams }) },
+    ),
+};
+
+export const agendaAdmin = {
+  list: () => request<{ items: AdminAgendaEvent[] }>('/admin/agenda').then((r) => r.items),
+
+  create: (input: Partial<AdminAgendaEvent> & { title: string; starts_at: string }) =>
+    request<{ id: string }>('/admin/agenda', { method: 'POST', body: JSON.stringify(input) }),
+
+  update: (id: string, input: Partial<AdminAgendaEvent>) =>
+    request<{ id: string }>(`/admin/agenda/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  remove: (id: string) => request<void>(`/admin/agenda/${id}`, { method: 'DELETE' }),
+};
+
+export const moderation = {
+  queue: () => request<{ queue: QueueItem[]; reports: ReportItem[] }>('/moderation/queue'),
+
+  act: (type: string, id: string, action: 'approve' | 'reject' | 'hide', reason?: string) =>
+    request<{ id: string; moderation_status: string }>(`/moderation/${type}/${id}/${action}`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  resolveReport: (id: string, status: 'resolved' | 'dismissed') =>
+    request<{ id: string }>(`/moderation/reports/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    }),
+};
+
+export const community = {
+  createTopic: (categoryId: string, title: string, body: string) =>
+    request<{ id: string; moderation_status: string }>('/forum/topics', {
+      method: 'POST',
+      body: JSON.stringify({ category_id: categoryId, title, body }),
+    }),
+
+  reply: (topicId: string, body: string, parentId?: string) =>
+    request<{ id: string }>(`/forum/topics/${topicId}/replies`, {
+      method: 'POST',
+      body: JSON.stringify({ body, parent_id: parentId }),
+    }),
+
+  like: (subjectType: string, subjectId: string) =>
+    request<{ liked: boolean }>('/reactions', {
+      method: 'POST',
+      body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId }),
+    }),
+
+  vote: (pollId: string, optionId: string) =>
+    request<{ voted: boolean; results: { option_id: string; label: string; votes: number }[] }>(
+      `/polls/${pollId}/vote`,
+      { method: 'POST', body: JSON.stringify({ option_id: optionId }) },
+    ),
+
+  report: (subjectType: string, subjectId: string, reason: string) =>
+    request<{ ok: boolean }>('/reports', {
+      method: 'POST',
+      body: JSON.stringify({ subject_type: subjectType, subject_id: subjectId, reason }),
+    }),
+};
+
 /** Dutch labels for the sport enums. Kept here so screens never show raw enum values. */
 export const SYSTEM_LABELS: Record<string, string> = {
   knockout: 'Knock-out',
