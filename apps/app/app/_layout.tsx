@@ -14,7 +14,8 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'KV Eendracht' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="meer/index" options={{ title: 'Meer' }} />
       </Stack>
     </>
   );

@@ -74,6 +74,44 @@ export type NewsPost = {
   published_at: string | null;
 };
 
+export type Tournament = {
+  id: string;
+  name: string;
+  played_on: string | null;
+  location: string | null;
+  match_system: string;
+  formation_category: string;
+  status: string;
+};
+
+export type ForumTopic = {
+  id: string;
+  title: string;
+  body: string;
+  category_name: string | null;
+  is_pinned: boolean;
+  is_locked: boolean;
+  reply_count: number;
+  like_count: number;
+  created_at: string;
+  author_name: string | null;
+};
+
+export type ForumCategory = {
+  id: string;
+  name: string;
+  description: string | null;
+  sort_order: number;
+};
+
+export type Poll = {
+  id: string;
+  question: string;
+  results_visible: string;
+  is_closed: boolean;
+  options: { option_id: string; label: string; votes: number; sort_order: number }[];
+};
+
 type List<T> = { items: T[] };
 
 export const api = {
@@ -81,4 +119,26 @@ export const api = {
   standings: () => request<List<StandingRow>>('/standings').then((r) => r.items),
   agenda: () => request<List<AgendaEvent>>('/agenda').then((r) => r.items),
   news: () => request<List<NewsPost>>('/news').then((r) => r.items),
+  tournaments: () => request<List<Tournament>>('/tournaments').then((r) => r.items),
+  forumTopics: () => request<List<ForumTopic>>('/forum/topics').then((r) => r.items),
+  forumCategories: () => request<List<ForumCategory>>('/forum/categories').then((r) => r.items),
+  activePoll: () => request<{ poll: Poll | null }>('/polls/active').then((r) => r.poll),
+};
+
+/** Dutch labels for the sport enums. Kept here so screens never show raw enum values. */
+export const SYSTEM_LABELS: Record<string, string> = {
+  knockout: 'Knock-out',
+  knockout_consolation: 'Knock-out + herkansing',
+  poule: 'Poules',
+  competition: 'Competitie',
+  sneker: 'Sneker telling',
+};
+
+export const FORMATION_LABELS: Record<string, string> = {
+  vrije_formatie: 'Vrije formatie',
+  del: 'D.E.L.',
+  del_abc: 'D.E.L. ABC',
+  vrije_formatie_beperkt: 'Vrije formatie (beperkt)',
+  twee_tegen_twee: '2 tegen 2',
+  pearke: 'Pearke',
 };
