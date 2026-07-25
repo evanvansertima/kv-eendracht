@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.expo/
+.next/
+*.tsbuildinfo
+
+# turborepo
+.turbo/
+
+# environment — never commit real secrets
+.env
+.env.*
+!.env.example
+
+# native
+ios/
+android/
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+
+# docker volumes
+infra/data/
+
+# testing
+coverage/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# macOS
+.DS_Store
+.AppleDouble
+Icon?
+
+# editors
+.idea/
+.vscode/*
+!.vscode/extensions.json

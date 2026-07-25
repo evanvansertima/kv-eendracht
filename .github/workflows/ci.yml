@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      # Dependency-free check of the draw and standings maths, including the full
+      # N = 2..100 partition sweep. Must stay at 17/17 — it is the regression guard
+      # proving the domain logic is unchanged. See CLAUDE.md.
+      - name: Verify domain
+        run: pnpm verify
+
+  database:
+    name: Database and RLS
+    runs-on: ubuntu-latest
+    # Enabled once phase 1 lands the migrations and the RLS suite.
+    if: false
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kv_eendracht_test
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kv_eendracht_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+        ports: ['5432:5432']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - name: RLS policy tests
+        run: pnpm --filter @kv/api test:rls

@@ -1,0 +1,7 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+# Build scripts are blocked by default. esbuild is a Vitest dependency and its
+# install step links the platform-native binary, without which tests cannot run.
+allowBuilds:
+  esbuild: true
