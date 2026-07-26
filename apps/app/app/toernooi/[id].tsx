@@ -20,6 +20,7 @@ import { useAsync } from '../../src/lib/useAsync';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { formatDate } from '../../src/lib/dates';
 import { Bracket, type BracketResult } from '../../src/components/Bracket';
+import { PartuurInschrijving } from '../../src/components/PartuurInschrijving';
 import { Card, SectionHeader, Loading, ErrorState, EmptyState, Segmented } from '../../src/components/ui';
 import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
@@ -271,7 +272,16 @@ export default function TournamentDetail() {
             </View>
           ) : null}
 
-          {regs.phase === 'ready' && regs.data.registration_open ? (
+          {regs.phase === 'ready' && regs.data.registers_as_partuur ? (
+            /* Vrije Formatie and Pearke: spelers arrive already paired up, so the
+               individual button would throw away the very thing being registered. */
+            <PartuurInschrijving
+              tournamentId={id}
+              parturen={regs.data.parturen}
+              registrationOpen={regs.data.registration_open}
+              onRegistered={regs.reload}
+            />
+          ) : regs.phase === 'ready' && regs.data.registration_open ? (
             <Pressable
               onPress={() => void toggleRegistration()}
               disabled={regBusy}
@@ -314,7 +324,7 @@ export default function TournamentDetail() {
             <ErrorState message={regs.message} onRetry={regs.reload} />
           ) : regs.data.items.length === 0 ? (
             <EmptyState title="Nog geen deelnemers" hint="Wees de eerste die zich inschrijft." />
-          ) : (
+          ) : regs.data.registers_as_partuur ? null : (
             <LevelColumns byLevel={regs.data.byLevel} isWide={isWide} />
           )}
         </>

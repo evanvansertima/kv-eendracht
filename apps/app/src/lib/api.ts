@@ -538,7 +538,11 @@ export type Registration = {
   display_name: string;
   skill_level: 'A' | 'B' | 'C' | null;
   gender: 'dame' | 'heer' | 'anders' | null;
+  /** Shared by spelers who registered together. Null for individual sign-up. */
+  partuur_group: string | null;
 };
+
+export type RegisteredPartuur = { group: string; players: Registration[] };
 
 export const tournaments = {
   /** Komend and afgelopen in one call; the server decides which section a row is in. */
@@ -549,8 +553,17 @@ export const tournaments = {
     request<{
       items: Registration[];
       byLevel: Record<string, Registration[]>;
+      parturen: RegisteredPartuur[];
+      /** True for Vrije Formatie and Pearke: sign up as a complete partuur. */
+      registers_as_partuur: boolean;
       registration_open: boolean;
     }>(`/tournaments/${id}/registrations`),
+
+  registerPartuur: (id: string, playerIds: string[]) =>
+    request<{ partuur_group: string; players: number }>(`/tournaments/${id}/register-partuur`, {
+      method: 'POST',
+      body: JSON.stringify({ player_ids: playerIds }),
+    }),
 
   openRegistration: (id: string, deadline: string | null) =>
     request<{ id: string; registration_deadline: string | null }>(
