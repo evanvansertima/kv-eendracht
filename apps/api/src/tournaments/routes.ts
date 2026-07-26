@@ -187,12 +187,12 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       // Names and levels from the public view: a participant list is public, contact
       // details are not.
       const { rows } = await tx.query(
-        `select r.id, r.player_id, r.status, r.created_at,
+        `select r.id, r.player_id, r.status, r.created_at, r.partuur_group,
                 p.display_name, p.skill_level, p.gender
            from public.tournament_registrations r
            join public.v_players_public p on p.id = r.player_id
           where r.tournament_id = $1 and r.status <> 'withdrawn'
-          order by p.skill_level nulls last, p.display_name`,
+          order by r.partuur_group nulls last, p.skill_level nulls last, p.display_name`,
         [id],
       );
       const { rows: open } = await tx.query<{ open: boolean }>(
@@ -203,7 +203,29 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       const byLevel: Record<string, typeof rows> = { A: [], B: [], C: [], onbekend: [] };
       for (const r of rows) (byLevel[r.skill_level ?? 'onbekend'] ??= []).push(r);
 
-      return { items: rows, byLevel, registration_open: open[0]?.open ?? false };
+      // Parturen for Vrije Formatie and Pearke, where spelers register together.
+      const parturen: { group: string; players: typeof rows }[] = [];
+      const byGroup = new Map<string, typeof rows>();
+      for (const r of rows) {
+        if (!r.partuur_group) continue;
+        const list = byGroup.get(r.partuur_group) ?? [];
+        list.push(r);
+        byGroup.set(r.partuur_group, list);
+      }
+      for (const [group, players] of byGroup) parturen.push({ group, players });
+
+      const mode = await tx.query<{ partuur: boolean }>(
+        'select public.registers_as_partuur($1) as partuur',
+        [id],
+      );
+
+      return {
+        items: rows,
+        byLevel,
+        parturen,
+        registers_as_partuur: mode.rows[0]?.partuur ?? false,
+        registration_open: open[0]?.open ?? false,
+      };
     }, req.claims).catch(translateDbError);
   });
 
@@ -279,6 +301,78 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       if (!rows[0]) throw new HttpError(404, 'Je bent niet ingeschreven voor deze wedstrijd.');
       return { ok: true };
     }, req.claims).catch(translateDbError);
+  });
+
+  /**
+   * Registers a complete partuur, for Vrije Formatie and Pearke.
+   *
+   * The spelers share a partuur_group, so the list can show them together and the
+   * loting can use them as-is rather than drawing.
+   */
+  app.post('/v1/tournaments/:id/register-partuur', { preHandler: requireAuth }, async (req, reply) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const body = z
+      .object({
+        player_ids: z
+          .array(uuid)
+          .min(2, 'Een partuur bestaat uit minimaal 2 spelers.')
+          .max(3, 'Een partuur bestaat uit maximaal 3 spelers.'),
+      })
+      .parse(req.body);
+
+    if (new Set(body.player_ids).size !== body.player_ids.length) {
+      throw new HttpError(400, 'Dezelfde speler staat twee keer in dit partuur.');
+    }
+
+    const created = await db(async (tx) => {
+      const check = await tx.query<{ partuur: boolean; open: boolean }>(
+        `select public.registers_as_partuur($1) as partuur,
+                public.registration_is_open($1) as open`,
+        [id],
+      );
+      if (!check.rows[0]?.partuur) {
+        throw new HttpError(
+          409,
+          'Bij deze wedstrijd schrijf je je individueel in; de parturen worden geloot.',
+        );
+      }
+      if (!check.rows[0].open) {
+        throw new HttpError(409, 'De inschrijving voor deze wedstrijd is gesloten.');
+      }
+
+      // A speler already on the list cannot appear in a second partuur. The unique
+      // constraint would catch it, but naming who is clearer than a bare conflict.
+      const existing = await tx.query<{ display_name: string }>(
+        `select p.display_name from public.tournament_registrations r
+           join public.v_players_public p on p.id = r.player_id
+          where r.tournament_id = $1 and r.player_id = any($2::uuid[])
+            and r.status <> 'withdrawn'`,
+        [id, body.player_ids],
+      );
+      if (existing.rows.length > 0) {
+        throw new HttpError(
+          409,
+          `${existing.rows.map((r) => r.display_name).join(', ')} staat al ingeschreven.`,
+        );
+      }
+
+      const group = await tx.query<{ id: string }>('select gen_random_uuid() as id');
+      const groupId = group.rows[0]!.id;
+
+      for (const playerId of body.player_ids) {
+        await tx.query(
+          `insert into public.tournament_registrations
+             (tournament_id, player_id, status, partuur_group)
+           values ($1, $2, 'registered', $3)`,
+          [id, playerId, groupId],
+        );
+      }
+
+      return { partuur_group: groupId, players: body.player_ids.length };
+    }, req.claims).catch(translateDbError);
+
+    reply.status(201);
+    return created;
   });
 
   /** An admin adds someone who cannot or will not sign up themselves. */
@@ -386,6 +480,7 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       const t = await tx.query<{
         id: string;
         status: string;
+        draw_published_at: string | null;
         match_system: (typeof MATCH_SYSTEMS)[number];
         formation_category: (typeof FORMATIONS)[number];
         abc_strict: boolean;
@@ -393,20 +488,58 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
         third_place_match: boolean;
         consolation_mode: string | null;
       }>(
-        `select id, status, match_system, formation_category, abc_strict,
-                pearke_mixed_required, third_place_match, consolation_mode
+        `select id, status, draw_published_at, match_system, formation_category,
+                abc_strict, pearke_mixed_required, third_place_match, consolation_mode
            from public.tournaments where id = $1`,
         [id],
       );
       const tour = t.rows[0];
       if (!tour) throw new HttpError(404, 'Toernooi niet gevonden.');
-      if (tour.status !== 'draft') throw new HttpError(409, 'Dit toernooi is al gepubliceerd.');
+      // Guard on whether it has been DRAWN, not on status.
+      //
+      // Opening the inschrijving already moves status to 'published' — that is what
+      // makes the wedstrijd visible to register for. Checking status here meant every
+      // wedstrijd with an inschrijving became impossible to draw, which is the entire
+      // flow. draw_published_at is the fact that actually matters.
+      if (tour.draw_published_at !== null) {
+        throw new HttpError(409, 'Deze wedstrijd is al geloot.');
+      }
 
       const players = await loadPlayers(tx, body.player_ids);
-      const result = runDraw(tour.formation_category, players, body.seed, {
-        abcStrict: tour.abc_strict,
-        pearkeMixedRequired: tour.pearke_mixed_required,
-      });
+
+      // Vrije Formatie and Pearke are not drawn: the parturen arrive already formed
+      // through registration, so publishing reads them back rather than inventing an
+      // arrangement the club did not choose.
+      const preformed = await tx.query<{ partuur_group: string; player_id: string }>(
+        `select partuur_group, player_id from public.tournament_registrations
+          where tournament_id = $1 and partuur_group is not null and status <> 'withdrawn'
+          order by partuur_group, player_id`,
+        [id],
+      );
+
+      let result: DrawResult;
+      if (preformed.rows.length > 0) {
+        const byGroup = new Map<string, DrawPlayer[]>();
+        for (const row of preformed.rows) {
+          const player = players.find((p) => p.id === row.player_id);
+          if (!player) continue;
+          const list = byGroup.get(row.partuur_group) ?? [];
+          list.push(player);
+          byGroup.set(row.partuur_group, list);
+        }
+        result = {
+          ok: byGroup.size > 0,
+          teams: [...byGroup.values()].map((ps, i) => ({ teamNo: i + 1, players: ps })),
+          reserves: [],
+          messages: [`${byGroup.size} ingeschreven parturen overgenomen.`],
+          seed: body.seed,
+        };
+      } else {
+        result = runDraw(tour.formation_category, players, body.seed, {
+          abcStrict: tour.abc_strict,
+          pearkeMixedRequired: tour.pearke_mixed_required,
+        });
+      }
       if (!result.ok) throw new HttpError(400, result.messages[0] ?? 'Loting niet mogelijk.');
 
       // Verification: the client's claim must match what this seed actually produces.
