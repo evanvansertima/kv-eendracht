@@ -187,6 +187,13 @@ export function registerAuthRoutes(app: FastifyInstance, config: Config): void {
       const p = profile.rows[0];
       if (!c || !p) throw new HttpError(401, 'Account niet gevonden.');
 
+      // The linked player record, if this account has one. Null for most accounts:
+      // players and logins are separate, and only a linked account can register itself
+      // for a wedstrijd.
+      const player = await tx.query<{ my_player_id: string | null }>(
+        'select public.my_player_id() as my_player_id',
+      );
+
       return {
         id: userId,
         display_name: p.display_name,
@@ -194,6 +201,7 @@ export function registerAuthRoutes(app: FastifyInstance, config: Config): void {
         email: c.email,
         is_anonymous: c.is_anonymous,
         match_entry_rights: p.match_entry_rights,
+        player_id: player.rows[0]?.my_player_id ?? null,
       };
     }, req.claims);
   });

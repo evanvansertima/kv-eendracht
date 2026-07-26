@@ -214,6 +214,8 @@ export type Me = {
   email: string | null;
   is_anonymous: boolean;
   match_entry_rights: boolean;
+  /** The linked player record, or null. Only a linked account can self-register. */
+  player_id: string | null;
 };
 
 export type SessionResponse = {
@@ -520,7 +522,54 @@ export type ReportItem = {
   created_at: string;
 };
 
+export type TournamentRow = Tournament & {
+  registration_opens_at: string | null;
+  registration_deadline: string | null;
+  draw_published_at: string | null;
+  registration_open: boolean;
+  registered: number;
+  team_count: number;
+};
+
+export type Registration = {
+  id: string;
+  player_id: string;
+  status: string;
+  display_name: string;
+  skill_level: 'A' | 'B' | 'C' | null;
+  gender: 'dame' | 'heer' | 'anders' | null;
+};
+
 export const tournaments = {
+  /** Komend and afgelopen in one call; the server decides which section a row is in. */
+  overview: () =>
+    request<{ komend: TournamentRow[]; afgelopen: TournamentRow[] }>('/tournaments/overview'),
+
+  registrations: (id: string) =>
+    request<{
+      items: Registration[];
+      byLevel: Record<string, Registration[]>;
+      registration_open: boolean;
+    }>(`/tournaments/${id}/registrations`),
+
+  openRegistration: (id: string, deadline: string | null) =>
+    request<{ id: string; registration_deadline: string | null }>(
+      `/tournaments/${id}/open-registration`,
+      { method: 'POST', body: JSON.stringify({ registration_deadline: deadline }) },
+    ),
+
+  register: (id: string) =>
+    request<{ id: string; status: string }>(`/tournaments/${id}/register`, { method: 'POST' }),
+
+  withdraw: (id: string) =>
+    request<{ ok: boolean }>(`/tournaments/${id}/withdraw`, { method: 'POST' }),
+
+  addRegistrations: (id: string, playerIds: string[]) =>
+    request<{ added: number }>(`/tournaments/${id}/registrations`, {
+      method: 'POST',
+      body: JSON.stringify({ player_ids: playerIds }),
+    }),
+
   create: (input: {
     name: string;
     played_on: string;
@@ -535,7 +584,11 @@ export const tournaments = {
 
   detail: (id: string) =>
     request<{
-      tournament: Tournament & { draw_seed: number | null };
+      tournament: Tournament & {
+        draw_seed: number | null;
+        draw_published_at: string | null;
+        registration_deadline: string | null;
+      };
       teams: { id: string; team_no: number; players: string | null }[];
       matches: {
         id: string;
