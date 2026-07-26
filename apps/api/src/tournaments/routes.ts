@@ -78,6 +78,7 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       const t = await tx.query(
         `select id, name, description, played_on, location, match_system, formation_category,
                 team_size, available_courts, status, visibility, draw_seed, draw_published_at,
+                draw_manually_adjusted, registration_deadline,
                 third_place_match, consolation_mode
            from public.tournaments where id = $1`,
         [id],
@@ -370,6 +371,14 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
         teams: z
           .array(z.object({ team_no: z.number().int().positive(), player_ids: z.array(uuid) }))
           .optional(),
+        /**
+         * Set when the beheerder moved spelers after the loting.
+         *
+         * Seed verification is skipped for these, because a hand-edited draw is by
+         * definition not what the seed produces. The flag is stored so the wedstrijd
+         * says so rather than presenting a seed that no longer reproduces the parturen.
+         */
+        manually_adjusted: z.boolean().optional(),
       })
       .parse(req.body);
 
@@ -401,7 +410,11 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       if (!result.ok) throw new HttpError(400, result.messages[0] ?? 'Loting niet mogelijk.');
 
       // Verification: the client's claim must match what this seed actually produces.
-      if (body.teams) {
+      //
+      // Skipped for an adjusted draw — the whole point of a manual change is that the
+      // parturen differ from the seed. The flag below records that, so the wedstrijd
+      // never shows a seed that pretends to reproduce them.
+      if (body.teams && !body.manually_adjusted) {
         const norm = (t2: { team_no: number; player_ids: string[] }[]) =>
           JSON.stringify(
             [...t2].sort((a, b) => a.team_no - b.team_no).map((x) => [x.team_no, [...x.player_ids].sort()]),
@@ -417,6 +430,21 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
         }
       }
 
+      // An adjusted draw persists what the beheerder actually arranged; an untouched
+      // one persists the verified server-side result. Using `result.teams` for both
+      // would silently discard every manual change.
+      const teamsToPersist =
+        body.manually_adjusted && body.teams
+          ? body.teams.map((x) => ({
+              teamNo: x.team_no,
+              players: x.player_ids.map((pid) => {
+                const found = players.find((p) => p.id === pid);
+                if (!found) throw new HttpError(400, 'Een speler in de indeling bestaat niet.');
+                return found;
+              }),
+            }))
+          : result.teams;
+
       // Persist parturen.
       //
       // Snekertelling is the exception: its parturen are re-drawn every omloop, so the
@@ -426,7 +454,7 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       // that system.
       const idByTeamNo = new Map<number, string>();
       if (tour.match_system !== 'sneker') {
-        for (const team of result.teams) {
+        for (const team of teamsToPersist) {
           const { rows } = await tx.query<{ id: string }>(
             `insert into public.teams (tournament_id, team_no, name) values ($1,$2,$3) returning id`,
             [id, team.teamNo, `Partuur ${team.teamNo}`],
@@ -441,19 +469,21 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
         }
       }
 
-      const matchCount = await generateMatches(tx, id, tour, result.teams, idByTeamNo, body.seed);
+      const matchCount = await generateMatches(tx, id, tour, teamsToPersist, idByTeamNo, body.seed);
 
       await tx.query(
         `update public.tournaments
             set status = 'published', draw_seed = $2,
+                draw_manually_adjusted = $3,
                 draw_published_at = now(), draw_published_by = auth.uid()
           where id = $1`,
-        [id, body.seed],
+        [id, body.seed, body.manually_adjusted ?? false],
       );
 
       return {
         seed: body.seed,
-        teams: result.teams.length,
+        manually_adjusted: body.manually_adjusted ?? false,
+        teams: teamsToPersist.length,
         matches: matchCount,
         reserves: result.reserves.map((r) => ({
           display_name: r.player.displayName,

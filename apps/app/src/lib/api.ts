@@ -587,6 +587,7 @@ export const tournaments = {
       tournament: Tournament & {
         draw_seed: number | null;
         draw_published_at: string | null;
+        draw_manually_adjusted: boolean;
         registration_deadline: string | null;
       };
       teams: { id: string; team_no: number; players: string | null }[];
@@ -618,11 +619,24 @@ export const tournaments = {
     seed: number,
     playerIds: string[],
     teams: { team_no: number; player_ids: string[] }[],
+    /** True once a beheerder moved spelers: the server then skips seed verification. */
+    manuallyAdjusted = false,
   ) =>
-    request<{ seed: number; teams: number; matches: number; messages: string[] }>(
-      `/tournaments/${id}/publish`,
-      { method: 'POST', body: JSON.stringify({ seed, player_ids: playerIds, teams }) },
-    ),
+    request<{
+      seed: number;
+      manually_adjusted: boolean;
+      teams: number;
+      matches: number;
+      messages: string[];
+    }>(`/tournaments/${id}/publish`, {
+      method: 'POST',
+      body: JSON.stringify({
+        seed,
+        player_ids: playerIds,
+        teams,
+        manually_adjusted: manuallyAdjusted,
+      }),
+    }),
 };
 
 export const agendaAdmin = {

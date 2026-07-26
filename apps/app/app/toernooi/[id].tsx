@@ -196,7 +196,12 @@ export default function TournamentDetail() {
           {FORMATION_LABELS[tournament.formation_category] ?? tournament.formation_category}
         </Text>
         {tournament.draw_seed != null ? (
-          <Text style={s.heroSeed}>Loting-seed {tournament.draw_seed}</Text>
+          <Text style={s.heroSeed}>
+            Loting-seed {tournament.draw_seed}
+            {/* A seed that no longer reproduces the parturen must not be presented as
+                if it does. */}
+            {tournament.draw_manually_adjusted ? ' · daarna handmatig aangepast' : ''}
+          </Text>
         ) : null}
       </View>
 

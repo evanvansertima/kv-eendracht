@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { validateVerschillendeMaten } from '@kv/domain';
 import { tournaments, SYSTEM_LABELS, FORMATION_LABELS, type DrawPreview } from '../../../src/lib/api';
 import { useAsync } from '../../../src/lib/useAsync';
 import { useBreakpoint } from '../../../src/lib/useBreakpoint';
@@ -31,6 +32,37 @@ export default function LotenScherm() {
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 2 ** 31));
   const [confirmEarly, setConfirmEarly] = useState(false);
 
+  /** Player currently picked up for a move, or null. */
+  const [moving, setMoving] = useState<string | null>(null);
+  /** Set once anything has been moved: publish then skips seed verification. */
+  const [adjusted, setAdjusted] = useState(false);
+
+  /**
+   * Moves the picked-up speler into another partuur.
+   *
+   * Sizes are allowed to differ afterwards. A beheerder moving someone usually knows
+   * exactly why — a late afmelding, a partuur one short — and refusing the move would
+   * just send them to the database instead.
+   */
+  function movePlayer(toTeamNo: number) {
+    if (!moving || !preview) return;
+
+    const player = preview.teams.flatMap((t2) => t2.players).find((p) => p.id === moving);
+    if (!player) return;
+
+    setPreview({
+      ...preview,
+      teams: preview.teams.map((team) => {
+        if (team.team_no === toTeamNo) {
+          return { ...team, players: [...team.players, player] };
+        }
+        return { ...team, players: team.players.filter((p) => p.id !== moving) };
+      }),
+    });
+    setMoving(null);
+    setAdjusted(true);
+  }
+
   const load = useCallback(
     async () => ({
       detail: await tournaments.detail(id),
@@ -49,6 +81,9 @@ export default function LotenScherm() {
       const p = await tournaments.preview(id, withSeed, ids);
       setPreview(p);
       setSeed(withSeed);
+      // A fresh draw replaces everything, so it is verifiable from its seed again.
+      setAdjusted(false);
+      setMoving(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Loten mislukt.');
     } finally {
@@ -67,6 +102,7 @@ export default function LotenScherm() {
         seed,
         ids,
         preview.teams.map((x) => ({ team_no: x.team_no, player_ids: x.players.map((p) => p.id) })),
+        adjusted,
       );
       router.replace(`/toernooi/${id}`);
     } catch (err) {
@@ -79,6 +115,18 @@ export default function LotenScherm() {
   if (state.phase === 'loading') return <Loading />;
   if (state.phase === 'error')
     return <ErrorState message={state.message} onRetry={state.reload} />;
+
+  // Recomputed on every render so a move shows its consequence immediately. The rule
+  // itself lives in the domain and is covered by its own tests.
+  const warnings =
+    preview && state.data.detail.tournament.match_system === 'sneker'
+      ? validateVerschillendeMaten(
+          preview.teams.map((team) => ({
+            teamNo: team.team_no,
+            players: team.players.map((p) => ({ id: p.id, displayName: p.display_name })),
+          })),
+        )
+      : [];
 
   const { detail, regs } = state.data;
   const { tournament } = detail;
@@ -162,16 +210,80 @@ export default function LotenScherm() {
                 ))}
               </Card>
 
-              {preview.teams.map((team) => (
-                <View key={team.team_no} style={s.teamCard}>
-                  <Text style={s.teamNo}>Partuur {team.team_no}</Text>
-                  {team.players.map((p) => (
-                    <Text key={p.id} style={s.teamPlayer}>
-                      {p.display_name}
+              {/*
+                Manual adjustment: tap a speler to pick them up, tap a partuur to drop
+                them there. Two taps rather than drag-and-drop, which works identically
+                on a phone, a tablet and a mouse — and does not need a gesture library.
+              */}
+              <Text style={s.hint}>
+                {moving
+                  ? 'Tik op een partuur om de speler daarheen te verplaatsen.'
+                  : 'Tik op een speler om die te verplaatsen.'}
+              </Text>
+
+              {preview.teams.map((team) => {
+                const isTarget = moving !== null && !team.players.some((p) => p.id === moving);
+                return (
+                  <Pressable
+                    key={team.team_no}
+                    onPress={() => (isTarget ? movePlayer(team.team_no) : undefined)}
+                    disabled={!isTarget}
+                    accessibilityRole={isTarget ? 'button' : undefined}
+                    accessibilityLabel={
+                      isTarget ? `Verplaats naar partuur ${team.team_no}` : `Partuur ${team.team_no}`
+                    }
+                    style={({ pressed }) => [
+                      s.teamCard,
+                      isTarget && s.teamCardTarget,
+                      pressed && isTarget && s.pressed,
+                    ]}
+                  >
+                    <Text style={s.teamNo}>Partuur {team.team_no}</Text>
+                    {team.players.map((p) => (
+                      <Pressable
+                        key={p.id}
+                        onPress={() => setMoving(moving === p.id ? null : p.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${p.display_name}${moving === p.id ? ', geselecteerd' : ''}`}
+                        accessibilityState={{ selected: moving === p.id }}
+                        style={({ pressed }) => [s.playerRow, pressed && s.pressed]}
+                      >
+                        <Ionicons
+                          name={moving === p.id ? 'radio-button-on' : 'reorder-three-outline'}
+                          size={16}
+                          color={moving === p.id ? colors.accent : colors.onSportMuted}
+                        />
+                        <Text
+                          style={[s.teamPlayer, moving === p.id && s.teamPlayerMoving]}
+                          numberOfLines={1}
+                        >
+                          {p.display_name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </Pressable>
+                );
+              })}
+
+              {adjusted ? (
+                <View style={s.adjustedNote}>
+                  <Ionicons name="information-circle-outline" size={16} color={colors.onAccentSoft} />
+                  <Text style={s.adjustedText}>
+                    Handmatig aangepast. De seed geeft deze indeling niet meer terug, en dat
+                    wordt bij de wedstrijd vermeld.
+                  </Text>
+                </View>
+              ) : null}
+
+              {warnings.length > 0 ? (
+                <View style={s.warnBox}>
+                  {warnings.map((w) => (
+                    <Text key={w} style={s.warnText}>
+                      {w}
                     </Text>
                   ))}
                 </View>
-              ))}
+              ) : null}
 
               {preview.reserves.length > 0 ? (
                 <>
@@ -300,8 +412,37 @@ const s = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
+  teamCardTarget: { borderWidth: 2, borderColor: colors.accent },
   teamNo: { ...t.sectionLabel, color: colors.onSportMuted },
-  teamPlayer: { ...t.tableName, color: colors.onSport, marginTop: 2 },
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 30,
+  },
+  teamPlayer: { ...t.tableName, color: colors.onSport, flex: 1 },
+  teamPlayerMoving: { color: colors.accent, fontWeight: '700' },
+  hint: { ...t.meta, marginBottom: spacing.sm, fontStyle: 'italic' },
+
+  adjustedNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.sm,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  adjustedText: { ...t.meta, color: colors.onAccentSoft, flex: 1 },
+
+  warnBox: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: radii.sm,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+    gap: 2,
+  },
+  warnText: { ...t.meta, color: colors.onAccentSoft },
   reserveRow: { marginBottom: spacing.sm },
 
   row: { flexDirection: 'row', gap: spacing.sm },
