@@ -21,6 +21,7 @@ import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { formatDate } from '../../src/lib/dates';
 import { Bracket, type BracketResult } from '../../src/components/Bracket';
 import { PartuurInschrijving } from '../../src/components/PartuurInschrijving';
+import { SnekerOverzicht } from '../../src/components/SnekerOverzicht';
 import { Card, SectionHeader, Loading, ErrorState, EmptyState, Segmented } from '../../src/components/ui';
 import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
@@ -182,6 +183,7 @@ export default function TournamentDetail() {
     teams.find((x) => x.team_no === teamNo)?.players ?? `Partuur ${teamNo}`;
 
   const isPoule = tournament.match_system === 'poule';
+  const isSneker = tournament.match_system === 'sneker';
   const layout = isPoule ? defaultPouleLayout(teams.length) : null;
 
   return (
@@ -225,6 +227,15 @@ export default function TournamentDetail() {
       {tab === 'Schema' ? (
         teams.length < 2 ? (
           <EmptyState title="Nog niet geloot" hint="Het schema verschijnt zodra er geloot is." />
+        ) : isSneker ? (
+          <>
+            <SectionHeader title="Speelrondes" />
+            <SnekerOverzicht teams={teams} matches={state.data.matches} isWide={isWide} />
+            <Text style={s.note}>
+              Bij Snekertelling valt niemand af: iedereen speelt alle drie de speelrondes in
+              een ander partuur, en de klassering is individueel.
+            </Text>
+          </>
         ) : isPoule ? (
           <>
             <SectionHeader title="Poule-indeling" />

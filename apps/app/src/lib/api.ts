@@ -603,7 +603,13 @@ export const tournaments = {
         draw_manually_adjusted: boolean;
         registration_deadline: string | null;
       };
-      teams: { id: string; team_no: number; players: string | null }[];
+      teams: {
+        id: string;
+        team_no: number;
+        name: string | null;
+        poule_no: number | null;
+        players: string | null;
+      }[];
       matches: {
         id: string;
         bracket: string;
