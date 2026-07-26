@@ -15,7 +15,7 @@ import {
 } from '@kv/domain';
 import type { Config } from '../config.ts';
 import { withRls, type Claims } from '../db.ts';
-import { requireRole, HttpError } from '../auth/middleware.ts';
+import { requireAuth, requireRole, HttpError } from '../auth/middleware.ts';
 import { translateDbError } from '../errors.ts';
 
 /**
@@ -147,6 +147,174 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
 
     reply.status(201);
     return created;
+  });
+
+  // ---------------------------------------------------------------- overview
+  //
+  // Upcoming and finished wedstrijden in one call, so the list screen needs no
+  // client-side date arithmetic to decide which section a row belongs in.
+  app.get('/v1/tournaments/overview', async (req) =>
+    db(async (tx) => {
+      const { rows } = await tx.query(`
+        select t.id, t.name, t.played_on, t.location, t.match_system, t.formation_category,
+               t.status, t.registration_opens_at, t.registration_deadline,
+               t.draw_published_at,
+               public.registration_is_open(t.id) as registration_open,
+               (select count(*) from public.tournament_registrations r
+                 where r.tournament_id = t.id and r.status <> 'withdrawn') as registered,
+               (select count(*) from public.teams tm where tm.tournament_id = t.id) as team_count,
+               case
+                 when t.status in ('finished','cancelled') then 'afgelopen'
+                 when t.played_on is not null and t.played_on < current_date then 'afgelopen'
+                 else 'komend'
+               end as periode
+          from public.tournaments t
+         order by t.played_on desc nulls last
+      `);
+      return {
+        komend: rows.filter((r) => r.periode === 'komend'),
+        afgelopen: rows.filter((r) => r.periode === 'afgelopen'),
+      };
+    }, req.claims).catch(translateDbError),
+  );
+
+  // ---------------------------------------------------------------- registration
+  app.get('/v1/tournaments/:id/registrations', async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    return db(async (tx) => {
+      // Names and levels from the public view: a participant list is public, contact
+      // details are not.
+      const { rows } = await tx.query(
+        `select r.id, r.player_id, r.status, r.created_at,
+                p.display_name, p.skill_level, p.gender
+           from public.tournament_registrations r
+           join public.v_players_public p on p.id = r.player_id
+          where r.tournament_id = $1 and r.status <> 'withdrawn'
+          order by p.skill_level nulls last, p.display_name`,
+        [id],
+      );
+      const { rows: open } = await tx.query<{ open: boolean }>(
+        'select public.registration_is_open($1) as open',
+        [id],
+      );
+      // Grouped A / B / C, which is how stap 3 presents a D.E.L. field.
+      const byLevel: Record<string, typeof rows> = { A: [], B: [], C: [], onbekend: [] };
+      for (const r of rows) (byLevel[r.skill_level ?? 'onbekend'] ??= []).push(r);
+
+      return { items: rows, byLevel, registration_open: open[0]?.open ?? false };
+    }, req.claims).catch(translateDbError);
+  });
+
+  /** Sets the registration window and publishes the wedstrijd so people can sign up. */
+  app.post('/v1/tournaments/:id/open-registration', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const body = z
+      .object({
+        registration_opens_at: z.string().datetime({ offset: true }).nullable().optional(),
+        registration_deadline: z.string().datetime({ offset: true }).nullable().optional(),
+      })
+      .parse(req.body ?? {});
+
+    return db(async (tx) => {
+      const { rows } = await tx.query(
+        `update public.tournaments
+            set status = case when status = 'draft' then 'published' else status end,
+                registration_opens_at = $2,
+                registration_deadline = $3
+          where id = $1 and draw_published_at is null
+          returning id, status, registration_opens_at, registration_deadline`,
+        [id, body.registration_opens_at ?? null, body.registration_deadline ?? null],
+      );
+      if (!rows[0]) {
+        throw new HttpError(409, 'Deze wedstrijd is al geloot; inschrijven kan niet meer.');
+      }
+      return rows[0];
+    }, req.claims).catch(translateDbError);
+  });
+
+  /** A participant signs themselves up. RLS decides whether they may. */
+  app.post('/v1/tournaments/:id/register', { preHandler: requireAuth }, async (req, reply) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+
+    const created = await db(async (tx) => {
+      const me = await tx.query<{ my_player_id: string | null }>(
+        'select public.my_player_id() as my_player_id',
+      );
+      const playerId = me.rows[0]?.my_player_id;
+      if (!playerId) {
+        throw new HttpError(
+          409,
+          'Je account is nog niet gekoppeld aan een spelersprofiel. Vraag de beheerder om je te koppelen.',
+        );
+      }
+
+      const { rows } = await tx.query(
+        `insert into public.tournament_registrations (tournament_id, player_id, status)
+         values ($1, $2, 'registered')
+         on conflict (tournament_id, player_id)
+           do update set status = 'registered'
+         returning id, status`,
+        [id, playerId],
+      );
+      return rows[0];
+    }, req.claims).catch(translateDbError);
+
+    reply.status(201);
+    return created;
+  });
+
+  /** Withdraw. Recorded rather than deleted, so the list keeps its history. */
+  app.post('/v1/tournaments/:id/withdraw', { preHandler: requireAuth }, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    return db(async (tx) => {
+      const { rows } = await tx.query(
+        `update public.tournament_registrations r
+            set status = 'withdrawn'
+          where r.tournament_id = $1 and r.player_id = public.my_player_id()
+          returning r.id`,
+        [id],
+      );
+      if (!rows[0]) throw new HttpError(404, 'Je bent niet ingeschreven voor deze wedstrijd.');
+      return { ok: true };
+    }, req.claims).catch(translateDbError);
+  });
+
+  /** An admin adds someone who cannot or will not sign up themselves. */
+  app.post('/v1/tournaments/:id/registrations', { preHandler: admin }, async (req, reply) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const body = z.object({ player_ids: z.array(uuid).min(1) }).parse(req.body);
+
+    const added = await db(async (tx) => {
+      let n = 0;
+      for (const playerId of body.player_ids) {
+        const { rowCount } = await tx.query(
+          `insert into public.tournament_registrations (tournament_id, player_id, status)
+           values ($1, $2, 'registered')
+           on conflict (tournament_id, player_id) do update set status = 'registered'`,
+          [id, playerId],
+        );
+        n += rowCount ?? 0;
+      }
+      return { added: n };
+    }, req.claims).catch(translateDbError);
+
+    reply.status(201);
+    return added;
+  });
+
+  /** Links a login to a player record, which is what makes self-registration possible. */
+  app.post('/v1/admin/players/:id/link', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const body = z.object({ profile_id: uuid.nullable() }).parse(req.body);
+
+    return db(async (tx) => {
+      const { rows } = await tx.query(
+        'update public.player_profiles set profile_id = $2 where id = $1 returning id, profile_id',
+        [id, body.profile_id],
+      );
+      if (!rows[0]) throw new HttpError(404, 'Speler niet gevonden.');
+      return rows[0];
+    }, req.claims).catch(translateDbError);
   });
 
   // ---------------------------------------------------------------- preview
