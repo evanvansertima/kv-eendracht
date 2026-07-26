@@ -4,7 +4,13 @@
     "strict": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "paths": { "@/*": ["./src/*"] }
+    "paths": { "@/*": ["./src/*"] },
+
+    // packages/domain is consumed as TypeScript source rather than a build output, and
+    // its internal imports carry explicit .ts extensions — required by Node's native
+    // type stripping, which the API depends on. The app must accept those to share the
+    // domain package at all. See ADR-0004.
+    "allowImportingTsExtensions": true
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }

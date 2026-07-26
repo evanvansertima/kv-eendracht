@@ -398,10 +398,38 @@ export const games = {
 
   round: (roundId: string) => request<RoundDetail>(`/rounds/${roundId}`),
 
-  draw: (roundId: string, seed: number, playerIds: string[], teams?: unknown) =>
-    request<{ seed: number; teams: number; matches: number; reserves: { name: string; reason: string }[]; messages: string[] }>(
+  /**
+   * Draws parturen without persisting, so the beheerder can review and adjust first.
+   * The server returns the parturen it produced from this seed and mode.
+   */
+  drawRound: (roundId: string, seed: number, playerIds: string[], mode: string) =>
+    request<{
+      seed: number;
+      parturen: { team_no: number; player_ids: string[] }[];
+      reserves: { name: string; reason: string }[];
+      messages: string[];
+    }>(`/rounds/${roundId}/draw-preview`, {
+      method: 'POST',
+      body: JSON.stringify({ seed, player_ids: playerIds, mode }),
+    }),
+
+  /**
+   * Persists a draw. `manual` is true when parturen were adjusted by hand, which tells
+   * the server to skip seed verification — the seed no longer reproduces the line-up.
+   */
+  publishDraw: (
+    roundId: string,
+    seed: number,
+    playerIds: string[],
+    parturen: { team_no: number; player_ids: string[] }[],
+    manual: boolean,
+  ) =>
+    request<{ seed: number; teams: number; matches: number; messages: string[] }>(
       `/rounds/${roundId}/draw`,
-      { method: 'POST', body: JSON.stringify({ seed, player_ids: playerIds, teams }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({ seed, player_ids: playerIds, teams: parturen, manual }),
+      },
     ),
 
   /**

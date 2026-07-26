@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { drawDel } from '@kv/domain';
+import { drawDel, drawDelAbc, drawByRanking } from '@kv/domain';
 import type { Config } from '../config.ts';
 import { withRls, type Claims } from '../db.ts';
 import { requireAuth, requireRole, HttpError } from '../auth/middleware.ts';
@@ -148,6 +148,45 @@ export function registerGameRoutes(app: FastifyInstance, config: Config): void {
     }, req.claims);
   });
 
+  // ---------------------------------------------------------------- draw preview
+  //
+  // Draws without persisting, so the beheerder can review and move players before
+  // anything is written. Same code path as publish; only the writing differs.
+  app.post('/v1/rounds/:id/draw-preview', { preHandler: admin }, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+    const body = z
+      .object({
+        seed: z.number().int(),
+        player_ids: z.array(uuid).min(4, 'Er zijn minimaal 4 spelers nodig.'),
+        mode: z
+          .enum(['willekeurig', 'niveau', 'mannen', 'vrouwen', 'ranking'])
+          .default('willekeurig'),
+      })
+      .parse(req.body);
+
+    return db(async (tx) => {
+      const round = await tx.query('select id from public.competition_rounds where id = $1', [id]);
+      if (!round.rows[0]) throw new HttpError(404, 'Speelronde niet gevonden.');
+
+      const players = await loadDrawPlayers(tx, body.player_ids);
+      const result = runRoundDraw(players, body.seed, body.mode);
+      if (!result.ok) throw new HttpError(400, result.messages[0] ?? 'Loten niet mogelijk.');
+
+      return {
+        seed: body.seed,
+        parturen: result.teams.map((t) => ({
+          team_no: t.teamNo,
+          player_ids: t.players.map((p) => p.id),
+        })),
+        reserves: result.reserves.map((r) => ({
+          name: r.player.displayName,
+          reason: r.reason,
+        })),
+        messages: result.messages,
+      };
+    }, req.claims).catch(translateDbError);
+  });
+
   // ---------------------------------------------------------------- draw
   //
   // Forms parturen for a match night and generates the partijen.
@@ -163,11 +202,22 @@ export function registerGameRoutes(app: FastifyInstance, config: Config): void {
       .object({
         seed: z.number().int(),
         player_ids: z.array(uuid).min(4, 'Er zijn minimaal 4 spelers nodig.'),
+        mode: z.enum(['willekeurig', 'niveau', 'mannen', 'vrouwen', 'ranking']).default('willekeurig'),
         // What the client believes the draw produced. Optional: omit it to let the
         // server draw authoritatively (used by tests and any non-interactive caller).
         teams: z
           .array(z.object({ team_no: z.number().int().positive(), player_ids: z.array(uuid) }))
           .optional(),
+        /**
+         * Set when the beheerder has moved players between parturen after drawing.
+         *
+         * Seed verification is skipped for these, because the whole point of a manual
+         * move is that the result no longer matches what the seed produces. The seed is
+         * still stored, and `manual_adjusted` records that it is no longer the whole
+         * story — silently keeping the seed as if it still reproduced the line-up would
+         * be the dishonest option.
+         */
+        manual: z.boolean().default(false),
       })
       .parse(req.body);
 
@@ -186,27 +236,68 @@ export function registerGameRoutes(app: FastifyInstance, config: Config): void {
         throw new HttpError(409, 'Voor deze speelavond is al geloot.');
       }
 
-      // Names come from the public view; a draw needs no contact details.
-      const { rows: players } = await tx.query<{ id: string; display_name: string }>(
-        `select id, display_name from public.v_players_public
-          where id = any($1::uuid[]) order by display_name`,
+      // Names, level and gender come from the public view; a draw needs no contact
+      // details. Ranking is joined from standings so the 'ranking' mode can pair
+      // players of comparable standing.
+      const { rows: players } = await tx.query<{
+        id: string;
+        display_name: string;
+        skill_level: 'A' | 'B' | 'C' | null;
+        gender: 'dame' | 'heer' | 'anders' | null;
+        ranking: number | null;
+      }>(
+        `select p.id, p.display_name, p.skill_level, p.gender, st.position as ranking
+           from public.v_players_public p
+           left join public.standings st on st.player_id = p.id
+          where p.id = any($1::uuid[])
+          order by p.display_name`,
         [body.player_ids],
       );
       if (players.length !== body.player_ids.length) {
         throw new HttpError(400, 'Niet alle geselecteerde spelers bestaan.');
       }
 
-      const result = drawDel(
-        players.map((p) => ({ id: p.id, displayName: p.display_name })),
-        body.seed,
-      );
+      const drawInput = players.map((p) => ({
+        id: p.id,
+        displayName: p.display_name,
+        skillLevel: p.skill_level,
+        gender: p.gender,
+        ranking: p.ranking,
+      }));
+
+      // Mannen/vrouwen narrow the field first, then draw at random within it — the
+      // filter decides who takes part, not how they are paired.
+      const filtered =
+        body.mode === 'mannen'
+          ? drawInput.filter((p) => p.gender === 'heer')
+          : body.mode === 'vrouwen'
+            ? drawInput.filter((p) => p.gender === 'dame')
+            : drawInput;
+
+      if (filtered.length < 4) {
+        throw new HttpError(
+          400,
+          `Te weinig spelers voor deze indeling (${filtered.length} na filteren).`,
+        );
+      }
+
+      const result =
+        body.mode === 'niveau'
+          ? drawDelAbc(filtered, body.seed, { strict: true })
+          : body.mode === 'ranking'
+            ? drawByRanking(filtered, 3)
+            : drawDel(filtered, body.seed);
+
       if (!result.ok) {
         throw new HttpError(400, result.messages[0] ?? 'Loting niet mogelijk.');
       }
 
       // Verification. Compare the server's draw with the client's claim, ignoring
       // ordering within a partuur since that carries no meaning.
-      if (body.teams) {
+      //
+      // Skipped for a manual adjustment: the beheerder has deliberately changed the
+      // line-up, so a mismatch is the expected outcome rather than a fault.
+      if (body.teams && !body.manual) {
         const norm = (t: { team_no: number; player_ids: string[] }[]) =>
           JSON.stringify(
             [...t]
@@ -226,8 +317,21 @@ export function registerGameRoutes(app: FastifyInstance, config: Config): void {
 
       // Persist teams, members, and a round-robin of partijen. The lowest team number is
       // the red side and serves first — see docs/Domain/Kaatsen-glossarium.md.
+      // A manual adjustment persists exactly what the beheerder arranged. A verified
+      // draw persists the server's own result, which by then is known to match.
+      const toPersist =
+        body.manual && body.teams
+          ? body.teams
+              .slice()
+              .sort((a, b) => a.team_no - b.team_no)
+              .map((t) => ({
+                teamNo: t.team_no,
+                players: t.player_ids.map((pid) => ({ id: pid })),
+              }))
+          : result.teams;
+
       const teamIds: string[] = [];
-      for (const team of result.teams) {
+      for (const team of toPersist) {
         const { rows } = await tx.query<{ id: string }>(
           `insert into public.teams (competition_round_id, team_no, name)
            values ($1, $2, $3) returning id`,
@@ -542,4 +646,75 @@ export function registerGameRoutes(app: FastifyInstance, config: Config): void {
 
   // Referenced by requireAuth so the import is used even if every route above is staff.
   void requireAuth;
+}
+
+// ---------------------------------------------------------------- draw helpers
+
+type GameTx = Parameters<Parameters<typeof withRls>[2]>[0];
+
+interface DrawablePlayer {
+  id: string;
+  displayName: string;
+  skillLevel: 'A' | 'B' | 'C' | null;
+  gender: 'dame' | 'heer' | 'anders' | null;
+  ranking: number | null;
+}
+
+/** Loads the fields a draw needs. Contact details are deliberately not among them. */
+async function loadDrawPlayers(tx: GameTx, ids: string[]): Promise<DrawablePlayer[]> {
+  const { rows } = await tx.query<{
+    id: string;
+    display_name: string;
+    skill_level: 'A' | 'B' | 'C' | null;
+    gender: 'dame' | 'heer' | 'anders' | null;
+    ranking: number | null;
+  }>(
+    `select p.id, p.display_name, p.skill_level, p.gender, st.position as ranking
+       from public.v_players_public p
+       left join public.standings st on st.player_id = p.id
+      where p.id = any($1::uuid[])
+      order by p.display_name`,
+    [ids],
+  );
+  if (rows.length !== ids.length) {
+    throw new HttpError(400, 'Niet alle geselecteerde spelers bestaan.');
+  }
+  return rows.map((r) => ({
+    id: r.id,
+    displayName: r.display_name,
+    skillLevel: r.skill_level,
+    gender: r.gender,
+    ranking: r.ranking,
+  }));
+}
+
+/**
+ * Applies the chosen indeling.
+ *
+ * Mannen and vrouwen narrow *who* takes part and then draw at random within that
+ * field; niveau and ranking decide *how* the field is paired. Keeping that distinction
+ * explicit is why the filter happens here rather than inside the draw functions.
+ */
+function runRoundDraw(
+  players: DrawablePlayer[],
+  seed: number,
+  mode: 'willekeurig' | 'niveau' | 'mannen' | 'vrouwen' | 'ranking',
+) {
+  const field =
+    mode === 'mannen'
+      ? players.filter((p) => p.gender === 'heer')
+      : mode === 'vrouwen'
+        ? players.filter((p) => p.gender === 'dame')
+        : players;
+
+  if (field.length < 4) {
+    throw new HttpError(
+      400,
+      `Te weinig spelers voor deze indeling (${field.length} na filteren).`,
+    );
+  }
+
+  if (mode === 'niveau') return drawDelAbc(field, seed, { strict: true });
+  if (mode === 'ranking') return drawByRanking(field, 3);
+  return drawDel(field, seed);
 }

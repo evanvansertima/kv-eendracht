@@ -4,6 +4,7 @@
  */
 
 import { computePartition } from '../loting/partition.ts';
+import { drawByRanking } from '../loting/ranking.ts';
 import { drawDel } from '../loting/del.ts';
 import { drawDelAbc, validateAbcTeam } from '../loting/delAbc.ts';
 import { drawTweeTegenTwee } from '../loting/tweeTegenTwee.ts';
@@ -164,5 +165,77 @@ describe('drawPearke', () => {
       overrideReason: 'Inclusieve variant tijdens jeugddag',
     });
     expect(withReason.ok).toBe(true);
+  });
+});
+
+describe('drawByRanking', () => {
+  const ranked = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `p${i + 1}`,
+      displayName: `Speler ${String.fromCharCode(65 + i)}`,
+      ranking: i + 1,
+    }));
+
+  it('verdeelt A t/m F als 1: A,C,E en 2: B,D,F', () => {
+    // Het voorbeeld uit de opdracht.
+    const res = drawByRanking(ranked(6), 3);
+    expect(res.ok).toBe(true);
+    expect(res.teams).toHaveLength(2);
+    expect(res.teams[0].players.map((p) => p.displayName)).toEqual([
+      'Speler A',
+      'Speler C',
+      'Speler E',
+    ]);
+    expect(res.teams[1].players.map((p) => p.displayName)).toEqual([
+      'Speler B',
+      'Speler D',
+      'Speler F',
+    ]);
+  });
+
+  it('past hetzelfde principe toe op elk volgend blok', () => {
+    const res = drawByRanking(ranked(12), 3);
+    expect(res.teams).toHaveLength(4);
+    // Tweede blok: G,I,K tegen H,J,L — spelers 7 t/m 12.
+    expect(res.teams[2].players.map((p) => p.displayName)).toEqual([
+      'Speler G',
+      'Speler I',
+      'Speler K',
+    ]);
+    expect(res.teams[3].players.map((p) => p.displayName)).toEqual([
+      'Speler H',
+      'Speler J',
+      'Speler L',
+    ]);
+  });
+
+  it('werkt ook met tweetallen', () => {
+    const res = drawByRanking(ranked(4), 2);
+    expect(res.teams[0].players.map((p) => p.displayName)).toEqual(['Speler A', 'Speler C']);
+    expect(res.teams[1].players.map((p) => p.displayName)).toEqual(['Speler B', 'Speler D']);
+  });
+
+  it('zet spelers die niet in een volledig blok passen op de reservelijst', () => {
+    const res = drawByRanking(ranked(8), 3);
+    expect(res.teams).toHaveLength(2); // 6 gebruikt
+    expect(res.reserves).toHaveLength(2);
+    expect(res.reserves[0].reason).toMatch(/blok van 6/);
+  });
+
+  it('deelt spelers zonder competitiestand onderaan in', () => {
+    const players = [
+      { id: 'x', displayName: 'Zonder stand' },
+      ...ranked(6),
+    ];
+    const res = drawByRanking(players, 3);
+    // De ongerankte speler valt buiten het eerste blok van 6.
+    expect(res.reserves.map((r) => r.player.displayName)).toContain('Zonder stand');
+    expect(res.messages.some((m) => m.includes('zonder competitiestand'))).toBe(true);
+  });
+
+  it('weigert te loten bij te weinig spelers', () => {
+    const res = drawByRanking(ranked(4), 3);
+    expect(res.ok).toBe(false);
+    expect(res.messages[0]).toMatch(/minimaal 6 spelers/);
   });
 });

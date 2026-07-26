@@ -22,3 +22,4 @@ export { drawPearke } from './pearke.ts';
 
 export type { VfTeamInput, VfRestrictions } from './vrijeFormatie.ts';
 export { validateVrijeFormatie, toDrawTeams } from './vrijeFormatie.ts';
+export * from './ranking.ts';

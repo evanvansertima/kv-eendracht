@@ -38,6 +38,8 @@ export default function AdminLayout() {
       <Stack.Screen name="index" options={{ title: 'Beheer' }} />
       <Stack.Screen name="spelers" options={{ title: 'Spelers' }} />
       <Stack.Screen name="speler/[id]" options={{ title: 'Speler' }} />
+      <Stack.Screen name="competitie" options={{ title: 'Competitie' }} />
+      <Stack.Screen name="loten" options={{ title: 'Loten' }} />
       <Stack.Screen name="speelronde/[id]" options={{ title: 'Speelronde' }} />
       <Stack.Screen name="uitslag/[matchId]" options={{ title: 'Uitslag invoeren' }} />
       <Stack.Screen name="toernooi/nieuw" options={{ title: 'Nieuw toernooi' }} />

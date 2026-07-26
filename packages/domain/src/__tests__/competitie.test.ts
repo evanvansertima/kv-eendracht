@@ -10,6 +10,11 @@ import {
   DEFAULT_SORT_ORDER,
 } from '../competitie/standings.ts';
 import {
+  formatUitslag,
+  isAllesAanDeHang,
+  parsePunten,
+} from '../competitie/uitslag.ts';
+import {
   markPresentForMatch,
   finalizeRoundAttendance,
   reopenRoundAttendance,
@@ -198,5 +203,36 @@ describe('KNKB 7-punten telling (competitie)', () => {
       gewonnen: 1,
       verloren: 1,
     });
+  });
+});
+
+describe('Uitslagnotatie (5 eersten + 6 punten)', () => {
+  it('schrijft de winnende eerst als punten, niet als zesde eerst', () => {
+    // Het voorbeeld uit de opdracht: eersten 6-5 met 6-2 in de laatste eerst.
+    expect(formatUitslag({ eerstenRed: 6, eerstenWhite: 5, puntenLaatsteEerst: [6, 2] }))
+      .toBe('5-5, 6-2');
+  });
+
+  it('doet hetzelfde als wit wint', () => {
+    expect(formatUitslag({ eerstenRed: 3, eerstenWhite: 6, puntenLaatsteEerst: [2, 6] }))
+      .toBe('3-5, 2-6');
+  });
+
+  it('toont alleen eersten als de punten onbekend zijn', () => {
+    expect(formatUitslag({ eerstenRed: 6, eerstenWhite: 3 })).toBe('6-3');
+  });
+
+  it('herkent alles aan de hang', () => {
+    expect(isAllesAanDeHang(5, 5, 6, 6)).toBe(true);
+    expect(isAllesAanDeHang(5, 5, 6, 4)).toBe(false);
+    expect(isAllesAanDeHang(4, 5, 6, 6)).toBe(false);
+  });
+
+  it('leest punten in, inclusief de 8 bij alles aan de hang', () => {
+    expect(parsePunten('6-2')).toEqual([6, 2]);
+    expect(parsePunten(' 8 - 6 ')).toEqual([8, 6]);
+    // 0, 2, 4, 6 en 8 zijn de enige geldige puntenstanden.
+    expect(parsePunten('5-2')).toBeNull();
+    expect(parsePunten('zes-twee')).toBeNull();
   });
 });
