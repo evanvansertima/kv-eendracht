@@ -336,6 +336,54 @@ export type AdminPlayer = {
   archived_at: string | null;
 };
 
+export type PlayerMatch = {
+  id: string;
+  match_no: number;
+  status: string;
+  round_no: number | null;
+  played_on: string | null;
+  tournament_name: string | null;
+  own_team_no: number | null;
+  eersten_voor: number | null;
+  eersten_tegen: number | null;
+  won: boolean;
+  has_result: boolean;
+};
+
+export type PlayerRanking = {
+  position: number;
+  group_size: number;
+  groep: 'heren' | 'dames';
+  competition_name: string;
+  eersten_voor: number;
+  eersten_tegen: number;
+  saldo: number;
+  deelnames: number;
+  gespeeld: number;
+  gewonnen: number;
+  verloren: number;
+};
+
+export type PlayerDetail = {
+  player: AdminPlayer & {
+    birth_date: string | null;
+    age_category: string | null;
+    admin_notes: string | null;
+    created_at: string;
+  };
+  ranking: PlayerRanking | null;
+  matches: PlayerMatch[];
+};
+
+export type NewPlayer = {
+  first_name: string;
+  infix?: string | null;
+  last_name: string;
+  skill_level?: 'A' | 'B' | 'C' | null;
+  gender?: 'dame' | 'heer' | 'anders' | null;
+  club?: string | null;
+};
+
 export const games = {
   competitions: () => request<{ items: Competition[] }>('/competitions').then((r) => r.items),
 
@@ -397,6 +445,14 @@ export const games = {
 
   archivePlayer: (id: string) =>
     request<{ ok: boolean }>(`/admin/players/${id}/archive`, { method: 'POST' }),
+
+  player: (id: string) => request<PlayerDetail>(`/admin/players/${id}`),
+
+  createPlayer: (input: NewPlayer) =>
+    request<{ id: string; display_name: string }>('/admin/players', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 };
 
 // ---------------------------------------------------------------- tournaments, agenda, moderation

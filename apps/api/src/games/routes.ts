@@ -389,6 +389,87 @@ export function registerGameRoutes(app: FastifyInstance, config: Config): void {
     }, req.claims).catch(translateDbError);
   });
 
+  /** Player detail: profile, competition ranking and match history. */
+  app.get('/v1/admin/players/:id', { preHandler: staff }, async (req) => {
+    const { id } = z.object({ id: uuid }).parse(req.params);
+
+    return db(async (tx) => {
+      const profile = await tx.query(
+        `select id, first_name, infix, last_name, display_name, birth_date, age_category,
+                gender, skill_level, club, is_active, phone, email, admin_notes, archived_at,
+                created_at
+           from public.player_profiles where id = $1`,
+        [id],
+      );
+      if (!profile.rows[0]) throw new HttpError(404, 'Speler niet gevonden.');
+
+      // Ranking within the player's own group, matching how the public standings are
+      // presented — a Dames player's position means her position among the dames.
+      // The ranking must be computed over the whole group, THEN filtered to this
+      // player. Filtering inside the same select would apply WHERE before the window
+      // function — leaving a single row, which always ranks 1st. That is why this is
+      // two CTEs rather than one.
+      const ranking = await tx.query(
+        `with base as (
+           select s.player_id, s.eersten_voor, s.eersten_tegen, s.saldo, s.deelnames,
+                  s.gespeeld, s.gewonnen, s.verloren,
+                  case when p.gender = 'dame' then 'dames' else 'heren' end as groep,
+                  c.name as competition_name
+             from public.standings s
+             join public.player_profiles p on p.id = s.player_id
+             join public.competitions c on c.id = s.competition_id
+         ),
+         ranked as (
+           select *,
+                  row_number() over (
+                    partition by groep
+                    order by eersten_voor desc, eersten_tegen asc, saldo desc, deelnames desc
+                  )::int as position,
+                  count(*) over (partition by groep)::int as group_size
+             from base
+         )
+         select * from ranked where player_id = $1`,
+        [id],
+      );
+
+      // Every partij this player appeared in, newest first.
+      //
+      // Returns the player's OWN eersten rather than red/white: "6-4" says nothing
+      // without knowing which side they were on, and the screen should not have to
+      // work that out for itself.
+      const matches = await tx.query(
+        `select m.id, m.match_no, m.status,
+                cr.round_no, cr.played_on,
+                tour.name as tournament_name,
+                t.team_no as own_team_no,
+                case when m.team_red_id = t.id then mr.eersten_red else mr.eersten_white end
+                  as eersten_voor,
+                case when m.team_red_id = t.id then mr.eersten_white else mr.eersten_red end
+                  as eersten_tegen,
+                (mr.winner is not null
+                 and mr.winner = case when m.team_red_id = t.id then 'red' else 'white' end)
+                  as won,
+                (mr.id is not null) as has_result
+           from public.team_members tm
+           join public.teams t on t.id = tm.team_id
+           join public.matches m
+             on m.team_red_id = t.id or m.team_white_id = t.id
+           left join public.competition_rounds cr on cr.id = m.competition_round_id
+           left join public.tournaments tour on tour.id = m.tournament_id
+           left join public.match_results mr on mr.match_id = m.id
+          where tm.player_id = $1
+          order by cr.played_on desc nulls last, m.match_no desc`,
+        [id],
+      );
+
+      return {
+        player: profile.rows[0],
+        ranking: ranking.rows[0] ?? null,
+        matches: matches.rows,
+      };
+    }, req.claims).catch(translateDbError);
+  });
+
   const playerSchema = z.object({
     first_name: z.string().trim().min(1, 'Voornaam is verplicht.').max(60),
     infix: z.string().trim().max(20).nullable().optional(),
