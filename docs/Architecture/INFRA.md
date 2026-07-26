@@ -30,12 +30,37 @@ Development and production share `docker-compose.yml`; production applies
 and Adminer, and replaces development secrets with real ones.
 
 ```bash
-# development
-docker compose up -d
+# development — dependencies only; api and web run on the host
+docker compose --env-file .env -f infra/docker-compose.yml up -d
 
-# production
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# production — everything containerised, behind TLS
+docker compose --env-file .env \
+  -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up -d
 ```
+
+> **The development stack does not run the app.** It brings up Postgres, MinIO, Mailpit
+> and Adminer; the API and the web app run on the host via `node` and `expo start`. Only
+> the production overlay builds and runs them as containers. That difference is
+> deliberate — hot reload beats a rebuild while developing — but it does mean the images
+> are exercised only by the production stack and by CI, so a Dockerfile change deserves
+> an actual build rather than a glance.
+
+### Required in production
+
+Every one of these fails the compose file loudly if unset, rather than starting with a
+weak default:
+
+| Variable | Purpose |
+|---|---|
+| `PUBLIC_HOST` | The domain Caddy obtains a certificate for |
+| `ACME_EMAIL` | Let's Encrypt contact address |
+| `KV_API_PASSWORD`, `KV_MIGRATOR_PASSWORD` | Database roles |
+| `JWT_SECRET`, `JWT_REFRESH_SECRET` | Distinct values, ≥ 32 random bytes each |
+| `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | Object storage |
+| `OFFSITE_TARGET` | Optional, but its absence is logged as a warning every night |
+
+`EXPO_PUBLIC_API_URL` is baked into the web bundle at **build** time, so changing the
+host needs a rebuild rather than a restart.
 
 ## Database roles
 

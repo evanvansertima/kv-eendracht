@@ -1,0 +1,26 @@
+# Keep the build context small and host-specific artefacts out of it.
+#
+# node_modules especially: it is large, and it contains binaries compiled for the host
+# architecture that would be wrong inside the image anyway. Each Dockerfile installs
+# its own.
+node_modules
+**/node_modules
+.git
+.turbo
+**/.turbo
+**/dist
+**/build
+**/.expo
+web-dist
+
+# Never let a real secret into an image layer.
+.env
+.env.*
+!.env.example
+
+# Not needed to run the app.
+docs
+*.md
+!README.md
+**/__tests__
+coverage

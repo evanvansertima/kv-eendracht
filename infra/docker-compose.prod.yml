@@ -1,0 +1,120 @@
+# Production overlay.
+#
+#   docker compose -f infra/docker-compose.yml -f infra/docker-compose.prod.yml up -d
+#
+# Adds the API, the web app, the TLS edge and the backup sidecar; removes the
+# development conveniences. The base file supplies postgres, minio and its bucket init,
+# so the two together are the whole stack.
+#
+# The overlay does NOT redefine secrets. Everything sensitive comes from the host
+# environment, so nothing in this repository has to be a real value — see INFRA.md.
+
+services:
+  # ---------------------------------------------------------------- application
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      API_PORT: 3000
+      # Note the host: inside the compose network Postgres is `postgres`, not localhost.
+      DATABASE_URL: postgresql://kv_api:${KV_API_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-kv_eendracht}
+      MIGRATION_DATABASE_URL: postgresql://kv_migrator:${KV_MIGRATOR_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-kv_eendracht}
+      JWT_SECRET: ${JWT_SECRET:?required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?required}
+      CORS_ORIGINS: https://${PUBLIC_HOST:?required}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    # No published ports: only Caddy reaches the API, so it is never exposed directly.
+    expose:
+      - '3000'
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/app/Dockerfile
+      args:
+        # Baked into the bundle at build time, so a host change needs a rebuild.
+        EXPO_PUBLIC_API_URL: https://${PUBLIC_HOST:?required}
+    restart: unless-stopped
+    expose:
+      - '8080'
+
+  # ---------------------------------------------------------------- edge
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?required}
+      ACME_EMAIL: ${ACME_EMAIL:?required}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates must survive a restart, or Let's Encrypt rate limits bite after a
+      # few redeploys.
+      - caddy-data:/data
+      - caddy-config:/config
+      - caddy-logs:/var/log/caddy
+    depends_on:
+      - api
+      - web
+
+  # ---------------------------------------------------------------- backup
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://kv_migrator:${KV_MIGRATOR_PASSWORD:?required}@postgres:5432/${POSTGRES_DB:-kv_eendracht}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?required}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+      OFFSITE_TARGET: ${OFFSITE_TARGET:-}
+    volumes:
+      - ./backup:/scripts:ro
+      - backup-data:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ['/bin/sh', '-c']
+    # A plain sleep loop rather than cron: one process, its output goes straight to
+    # `docker compose logs backup`, and there is no second scheduler to misconfigure.
+    command:
+      - |
+        apk add --no-cache minio-client >/dev/null
+        while true; do
+          /scripts/backup.sh || echo "BACKUP FAILED at $$(date -u +%FT%TZ)"
+          sleep 86400
+        done
+
+  # ---------------------------------------------------------------- removed in prod
+  #
+  # Mailpit captures mail instead of sending it, and Adminer is an unauthenticated
+  # database console. Neither belongs on a public host.
+  mailpit:
+    profiles: ['donotstart']
+
+  adminer:
+    profiles: ['donotstart']
+
+volumes:
+  caddy-data:
+  caddy-config:
+  caddy-logs:
+  backup-data:

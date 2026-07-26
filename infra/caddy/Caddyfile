@@ -1,0 +1,47 @@
+# Edge proxy: TLS, routing, and the security headers.
+#
+# Caddy obtains and renews certificates automatically, which is the main reason it is
+# here rather than nginx — a club server nobody watches must not fail because a
+# certificate quietly expired.
+{
+	email {$ACME_EMAIL}
+}
+
+{$PUBLIC_HOST} {
+	encode gzip zstd
+
+	# The API. WebSocket upgrades pass through unchanged, which the live scorebord and
+	# the pg_notify relay both need.
+	handle /v1/* {
+		reverse_proxy api:3000
+	}
+
+	# Uploaded media, served straight from MinIO.
+	handle /media/* {
+		reverse_proxy minio:9000
+	}
+
+	# Everything else is the web app.
+	handle {
+		reverse_proxy web:8080
+	}
+
+	header {
+		# HSTS. Only meaningful once the certificate works, which Caddy guarantees before
+		# it serves this host at all.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		# Caddy advertises itself by default; there is no reason to tell the internet
+		# which server and version is running.
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
