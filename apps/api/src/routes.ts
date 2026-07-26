@@ -69,11 +69,34 @@ export function registerRoutes(app: FastifyInstance, config: Config): void {
 
   app.get('/v1/standings', async () => {
     const rows = await db(async (tx) => {
+      // Gender comes from v_players_public, never player_profiles: that view omits
+      // phone, email and admin_notes, and this endpoint is public.
+      //
+      // Positions are re-ranked WITHIN each gender. A Dames table showing global
+      // positions 2, 5, 7 reads as broken rather than as a standing. The rise/fall
+      // arrow is derived the same way — ranking previous_position within the group —
+      // so the arrow keeps meaning something after the split.
       const { rows } = await tx.query(`
+        with base as (
+          select s.player_id, s.display_name, s.eersten_voor, s.eersten_tegen, s.saldo,
+                 s.deelnames, s.gespeeld, s.gewonnen, s.verloren,
+                 s.position as global_position, s.previous_position, s.updated_at,
+                 case when p.gender = 'dame' then 'dames' else 'heren' end as groep
+            from public.v_competition_standings s
+            join public.v_players_public p on p.id = s.player_id
+        )
         select player_id, display_name, eersten_voor, eersten_tegen, saldo,
-               deelnames, gespeeld, gewonnen, verloren, position, previous_position
-          from public.v_competition_standings
-         order by position asc nulls last
+               deelnames, gespeeld, gewonnen, verloren, groep, updated_at,
+               row_number() over (
+                 partition by groep
+                 order by eersten_voor desc, eersten_tegen asc, saldo desc,
+                          deelnames desc, display_name asc
+               )::int as position,
+               case when previous_position is null then null else
+                 rank() over (partition by groep order by previous_position asc nulls last)
+               end::int as previous_position
+          from base
+         order by groep, position
       `);
       return rows;
     });

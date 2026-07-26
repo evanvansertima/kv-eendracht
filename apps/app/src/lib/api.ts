@@ -132,6 +132,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export type StandingRow = {
+  /** 'heren' or 'dames' — the API ranks each group independently. */
+  groep: 'heren' | 'dames';
+  updated_at: string | null;
   player_id: string;
   display_name: string;
   eersten_voor: number;
