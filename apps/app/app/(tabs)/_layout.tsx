@@ -14,10 +14,19 @@ import { useSession } from '../../src/lib/SessionProvider';
  * session: Login -> Profiel -> Beheer.
  */
 
+/**
+ * LIVE sits in the middle, deliberately.
+ *
+ * It is the one screen used while a partij is actually being played, so it takes the
+ * thumb-reachable centre slot rather than a place at the end of the row.
+ *
+ * Wedstrijden moves off the tab bar to make room; it stays reachable from the Home
+ * quick links and from Beheer, which is where it is actually used.
+ */
 const TABS = [
   { name: 'index', title: 'Home', icon: 'home', activeIcon: 'home' },
   { name: 'agenda', title: 'Agenda', icon: 'calendar-outline', activeIcon: 'calendar' },
-  { name: 'toernooien', title: 'Wedstrijden', icon: 'trophy-outline', activeIcon: 'trophy' },
+  { name: 'scorebord', title: 'LIVE', icon: 'radio-outline', activeIcon: 'radio' },
   { name: 'competitie', title: 'Competitie', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
   { name: 'community', title: 'Community', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles' },
 ] as const;
@@ -89,6 +98,8 @@ export default function TabsLayout() {
           }}
         />
       ))}
+      {/* Registered but hidden: reachable from Home and Beheer, not a tab. */}
+      <Tabs.Screen name="toernooien" options={{ href: null, title: 'Wedstrijden' }} />
     </Tabs>
   );
 }

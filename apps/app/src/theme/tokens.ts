@@ -131,6 +131,34 @@ export const darkPalette: Palette = {
  */
 export const colors = lightPalette;
 
+/**
+ * LIVE Scorebord palette.
+ *
+ * Deliberately its own set rather than the app palette: the scorebord is dark in every
+ * theme, is read at a distance, and uses oker-geel as its accent for the timer and
+ * logboek. Keeping it here rather than in the screen honours the no-hard-coded-colours
+ * rule (CLAUDE.md rule 12) while letting it diverge on purpose.
+ */
+export const scorebord = {
+  background: '#0B0F16',
+  panel: '#141A24',
+  line: 'rgba(255,255,255,0.10)',
+  text: '#FFFFFF',
+  muted: '#8E9AAB',
+  /** Timer and logboek accent, specified by the club. */
+  oker: '#D9A621',
+  okerSoft: 'rgba(217,166,33,0.15)',
+  /** Rode partuur. */
+  red: '#D32F3A',
+  /** Witte partuur. */
+  white: '#F2F4F7',
+  /** Text on the white score button. */
+  onWhite: '#0B0F16',
+  overlay: 'rgba(0,0,0,0.6)',
+  wisselCard: 'rgba(20,26,36,0.96)',
+  kaatsButton: '#141A24',
+} as const;
+
 export const spacing = {
   xs: 4,
   sm: 8,

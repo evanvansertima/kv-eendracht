@@ -13,6 +13,11 @@
 
 import { MAX_EERSTEN } from '../toernooi/matchResult.ts';
 
+// Re-exported so callers in this folder can take the winning-score constant from the
+// module they already depend on. Importing it without re-exporting silently left it
+// undefined for those callers, which made every `>= MAX_EERSTEN` comparison false.
+export { MAX_EERSTEN };
+
 /** Punten within one eerst: 0, 2, 4, 6 — then the eerst is won. */
 export const PUNTEN_LADDER = [0, 2, 4, 6] as const;
 

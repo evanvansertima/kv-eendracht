@@ -14,3 +14,4 @@ export {
   aggregateMatchLines,
 } from './standings.ts';
 export * from './uitslag.ts';
+export * from './scorebord.ts';
