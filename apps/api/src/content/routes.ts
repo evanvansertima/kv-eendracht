@@ -23,6 +23,7 @@ const eventSchema = z.object({
   starts_at: z.string().datetime({ offset: true }),
   ends_at: z.string().datetime({ offset: true }).nullable().optional(),
   location: z.string().max(160).nullable().optional(),
+  image_url: z.string().url('Vul een geldige URL in.').max(500).nullable().optional(),
   organizer: z.string().max(120).nullable().optional(),
   audience: z.string().max(80).nullable().optional(),
   tournament_id: uuid.nullable().optional(),
@@ -40,7 +41,7 @@ export function registerContentRoutes(app: FastifyInstance, config: Config): voi
     db(async (tx) => {
       const { rows } = await tx.query(
         `select id, title, description, event_type, starts_at, ends_at, location,
-                organizer, audience, is_published, tournament_id, competition_id
+                image_url, organizer, audience, is_published, tournament_id, competition_id
            from public.agenda_events
           order by starts_at desc`,
       );
@@ -58,15 +59,15 @@ export function registerContentRoutes(app: FastifyInstance, config: Config): voi
     const created = await db(async (tx) => {
       const { rows } = await tx.query(
         `insert into public.agenda_events
-           (title, description, event_type, starts_at, ends_at, location, organizer,
-            audience, tournament_id, competition_id, is_published, created_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, coalesce($11,false), auth.uid())
+           (title, description, event_type, starts_at, ends_at, location, image_url,
+            organizer, audience, tournament_id, competition_id, is_published, created_by)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, coalesce($12,false), auth.uid())
          returning id, title, is_published`,
         [
           body.title, body.description ?? null, body.event_type ?? null, body.starts_at,
-          body.ends_at ?? null, body.location ?? null, body.organizer ?? null,
-          body.audience ?? null, body.tournament_id ?? null, body.competition_id ?? null,
-          body.is_published ?? null,
+          body.ends_at ?? null, body.location ?? null, body.image_url ?? null,
+          body.organizer ?? null, body.audience ?? null, body.tournament_id ?? null,
+          body.competition_id ?? null, body.is_published ?? null,
         ],
       );
       return rows[0];

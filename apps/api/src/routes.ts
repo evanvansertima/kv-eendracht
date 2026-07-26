@@ -34,7 +34,7 @@ export function registerRoutes(app: FastifyInstance, config: Config): void {
     const rows = await db(async (tx) => {
       const { rows } = await tx.query(`
         select id, title, description, event_type, starts_at, ends_at,
-               location, organizer, audience
+               location, organizer, audience, image_url
           from public.agenda_events
          order by starts_at asc
       `);

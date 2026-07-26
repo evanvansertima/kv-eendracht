@@ -9,8 +9,13 @@ import { Card, SectionHeader, Loading, ErrorState, EmptyState } from '../../src/
 import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
 
-/** Free text plus suggestions, so a new category never needs a migration. */
-const TYPES = ['Competitie', 'Toernooi', 'Training', 'Vergadering', 'Overig'];
+/**
+ * Free text plus suggestions, so a new category never needs a migration.
+ *
+ * Kept in step with the filter on the public agenda: offering a type there that the
+ * filter cannot show would hide the event from everyone browsing by category.
+ */
+const TYPES = ['Competitie', 'Wedstrijd', 'Training'];
 
 export default function AgendaBeheer() {
   const { isWide } = useBreakpoint();
@@ -23,6 +28,7 @@ export default function AgendaBeheer() {
   const [time, setTime] = useState('19:00');
   const [type, setType] = useState(TYPES[0]!);
   const [location, setLocation] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
 
   const load = useCallback(() => agendaAdmin.list(), []);
   const state = useAsync(load, []);
@@ -59,12 +65,14 @@ export default function AgendaBeheer() {
         starts_at: iso,
         event_type: type,
         location: location.trim() || null,
+        image_url: imageUrl.trim() || null,
         is_published: true,
       });
       setAdding(false);
       setTitle('');
       setDate('');
       setLocation('');
+      setImageUrl('');
     });
   }
 
@@ -117,6 +125,15 @@ export default function AgendaBeheer() {
             placeholder="Locatie"
             placeholderTextColor={colors.textMuted}
             accessibilityLabel="Locatie"
+            style={s.input}
+          />
+          <TextInput
+            value={imageUrl}
+            onChangeText={setImageUrl}
+            placeholder="Afbeelding-URL (optioneel)"
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            accessibilityLabel="Afbeelding-URL"
             style={s.input}
           />
           <View style={s.chips}>

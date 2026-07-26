@@ -156,6 +156,8 @@ export type AgendaEvent = {
   starts_at: string;
   ends_at: string | null;
   location: string | null;
+  /** Optional; most events have none, so the UI falls back to a type tile. */
+  image_url: string | null;
 };
 
 export type NewsPost = {
@@ -503,6 +505,7 @@ export type AdminAgendaEvent = {
   starts_at: string;
   ends_at: string | null;
   location: string | null;
+  image_url: string | null;
   is_published: boolean;
 };
 

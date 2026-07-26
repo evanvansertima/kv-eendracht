@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api } from '../../src/lib/api';
 import { useAsync } from '../../src/lib/useAsync';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { formatEventMoment } from '../../src/lib/dates';
 import { Card, Loading, ErrorState, EmptyState, Segmented } from '../../src/components/ui';
+import { AgendaThumb } from '../../src/components/AgendaThumb';
 import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
 
@@ -58,16 +59,23 @@ export default function Agenda() {
       ) : (
         filtered.map((e) => (
           <Card key={e.id}>
-            <Text style={s.title}>{e.title}</Text>
-            <Text style={s.muted}>
-              {formatEventMoment(e.starts_at)}
-              {e.location ? ` · ${e.location}` : ''}
-            </Text>
-            {e.description ? (
-              <Text style={s.body} numberOfLines={3}>
-                {e.description}
-              </Text>
-            ) : null}
+            <View style={s.itemRow}>
+              <View style={s.itemText}>
+                <Text style={s.title}>{e.title}</Text>
+                <Text style={s.muted}>
+                  {formatEventMoment(e.starts_at)}
+                  {e.location ? ` · ${e.location}` : ''}
+                </Text>
+                {e.description ? (
+                  <Text style={s.body} numberOfLines={3}>
+                    {e.description}
+                  </Text>
+                ) : null}
+              </View>
+              {/* Right-hand thumbnail: the photo when there is one, otherwise a tile
+                  carrying the event type. */}
+              <AgendaThumb imageUrl={e.image_url} eventType={e.event_type} />
+            </View>
           </Card>
         ))
       )}
@@ -89,6 +97,8 @@ const s = StyleSheet.create({
     marginBottom: spacing.md,
     color: colors.text,
   },
+  itemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  itemText: { flex: 1 },
   title: t.cardTitle,
   muted: { ...t.meta, marginTop: 2 },
   body: { ...t.body, color: colors.textMuted, marginTop: spacing.sm },
