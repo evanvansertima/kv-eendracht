@@ -9,6 +9,7 @@ import {
   assignPoules,
   generatePouleSchedule,
   generateOmloopSchema,
+  drawSnekerMaten,
   type DrawPlayer,
   type DrawResult,
   type DrawTeam,
@@ -417,18 +418,26 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       }
 
       // Persist parturen.
+      //
+      // Snekertelling is the exception: its parturen are re-drawn every omloop, so the
+      // formation draw only establishes WHO takes part. Writing its single set here too
+      // would collide with the per-omloop rows on
+      // uq_teams_no_per_tournament_bracket — generateMatches owns team creation for
+      // that system.
       const idByTeamNo = new Map<number, string>();
-      for (const team of result.teams) {
-        const { rows } = await tx.query<{ id: string }>(
-          `insert into public.teams (tournament_id, team_no, name) values ($1,$2,$3) returning id`,
-          [id, team.teamNo, `Partuur ${team.teamNo}`],
-        );
-        idByTeamNo.set(team.teamNo, rows[0]!.id);
-        for (const p of team.players) {
-          await tx.query(
-            `insert into public.team_members (team_id, player_id, role) values ($1,$2,'speler')`,
-            [rows[0]!.id, p.id],
+      if (tour.match_system !== 'sneker') {
+        for (const team of result.teams) {
+          const { rows } = await tx.query<{ id: string }>(
+            `insert into public.teams (tournament_id, team_no, name) values ($1,$2,$3) returning id`,
+            [id, team.teamNo, `Partuur ${team.teamNo}`],
           );
+          idByTeamNo.set(team.teamNo, rows[0]!.id);
+          for (const p of team.players) {
+            await tx.query(
+              `insert into public.team_members (team_id, player_id, role) values ($1,$2,'speler')`,
+              [rows[0]!.id, p.id],
+            );
+          }
         }
       }
 
@@ -527,6 +536,63 @@ async function generateMatches(
       );
     }
     return n;
+  }
+
+  // Snekertelling: three speelrondes, each a different combination, never two of the
+  // same maten in one partuur. All three rondes are persisted up front — unlike the
+  // doorschuif, they do not depend on results.
+  if (tour.match_system === 'sneker') {
+    const sneker = drawSnekerMaten(
+      teams.flatMap((t2) => t2.players),
+      seed,
+    );
+    if (!sneker.ok) throw new HttpError(400, sneker.messages[0] ?? 'Snekerloting niet mogelijk.');
+
+    // The parturen differ per omloop, so each omloop gets its own teams rows rather
+    // than reusing the ones the formation draw produced.
+    //
+    // team_no is offset per omloop because uq_teams_no_per_tournament_bracket is unique
+    // on (tournament_id, bracket, team_no) — reusing 1..n each omloop collides on the
+    // second one. The name carries the omloop, so the display stays readable.
+    const perRonde = sneker.rounds[0]?.teams.length ?? 0;
+    let total = 0;
+    for (const ronde of sneker.rounds) {
+      const idByNo = new Map<number, string>();
+      for (const team of ronde.teams) {
+        const teamNo = (ronde.roundNo - 1) * perRonde + team.teamNo;
+        const { rows } = await tx.query<{ id: string }>(
+          `insert into public.teams (tournament_id, team_no, name)
+           values ($1, $2, $3) returning id`,
+          [tournamentId, teamNo, `Omloop ${ronde.roundNo} · partuur ${team.teamNo}`],
+        );
+        idByNo.set(teamNo, rows[0]!.id);
+        for (const p of team.players) {
+          await tx.query(
+            `insert into public.team_members (team_id, player_id, role) values ($1,$2,'speler')`,
+            [rows[0]!.id, p.id],
+          );
+        }
+      }
+
+      const nos = [...idByNo.keys()].sort((x, y) => x - y);
+      for (let i = 0; i + 1 < nos.length; i += 2) {
+        total += 1;
+        await tx.query(
+          `insert into public.matches
+             (tournament_id, bracket, round_no, match_no, sneker_round,
+              team_red_id, team_white_id, status)
+           values ($1,'main',$2,$3,$2,$4,$5,'scheduled')`,
+          [
+            tournamentId,
+            ronde.roundNo,
+            Math.floor(i / 2) + 1,
+            idByNo.get(nos[i]!),
+            idByNo.get(nos[i + 1]!),
+          ],
+        );
+      }
+    }
+    return total;
   }
 
   // Plain afvalsysteem uses the club's doorschuif, not a seeded power-of-two bracket.
