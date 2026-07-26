@@ -38,6 +38,17 @@ export default [
     rules: { 'no-restricted-imports': 'off' },
   },
   {
+    // The RLS suite must build its own client: its whole purpose is to connect as
+    // kv_api, set arbitrary claims, and assert that the DATABASE refuses — with
+    // withRls and the route guards bypassed. Routing it through withRls would test
+    // the helper rather than the policies.
+    //
+    // console is allowed too: the suite warns when no database is reachable, which is
+    // what separates "skipped" from "silently passed".
+    files: ['src/__tests__/**'],
+    rules: { 'no-restricted-imports': 'off', 'no-console': 'off' },
+  },
+  {
     // db.mjs is a command-line migration runner. console IS its user interface here,
     // not stray debugging left behind.
     files: ['scripts/**'],
