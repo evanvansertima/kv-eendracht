@@ -104,6 +104,55 @@ export interface PlayerMatchLine {
   won: boolean;
 }
 
+/**
+ * Eersten awarded to the winner of a competition partij, regardless of how many they
+ * actually scored.
+ *
+ * The KNKB rule, and the same constant poules already use. It is deliberately higher
+ * than the 6 eersten needed to win: it rewards winning over accumulating eersten, while
+ * a narrow 5-6 loss still banks 5 — which keeps an outclassed partuur playing to the end.
+ */
+export const WIN_POINTS = 7;
+
+export interface RawMatchSide {
+  playerIds: readonly string[];
+  eersten: number;
+}
+
+/**
+ * Converts one finished partij into per-player standings lines under the KNKB rule.
+ *
+ * MIRROR: `recalculate_standings` in apps/api/src/db/migrations/0008_knkb_scoring.sql
+ * computes exactly this in SQL. Both must change together, with these tests — see
+ * KV-EENDRACHT-APP-SPEC section 12 rule 4.
+ *
+ * A draw keeps raw eersten on both sides: there is no winner to award WIN_POINTS to.
+ * Regular partijen cannot end level (the database CHECK constraints reject 6-6), so
+ * this only applies to formats that explicitly allow a draw.
+ */
+export function toMatchLines(
+  red: RawMatchSide,
+  white: RawMatchSide,
+  winner: 'red' | 'white' | 'draw' | null,
+): PlayerMatchLine[] {
+  const lines: PlayerMatchLine[] = [];
+  const decided = winner === 'red' || winner === 'white';
+
+  const push = (side: RawMatchSide, other: RawMatchSide, isWinner: boolean) => {
+    const isLoser = decided && !isWinner;
+    const voor = isWinner ? WIN_POINTS : side.eersten;
+    const tegen = isLoser ? WIN_POINTS : other.eersten;
+    for (const playerId of side.playerIds) {
+      lines.push({ playerId, eerstenVoor: voor, eerstenTegen: tegen, won: isWinner });
+    }
+  };
+
+  push(red, white, winner === 'red');
+  push(white, red, winner === 'white');
+
+  return lines;
+}
+
 export function aggregateMatchLines(
   lines: readonly PlayerMatchLine[],
 ): Map<string, { eerstenVoor: number; eerstenTegen: number; gespeeld: number; gewonnen: number; verloren: number }> {

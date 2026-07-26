@@ -2,7 +2,13 @@
  * Competitiestand en automatische aanwezigheid — spec §21/§29.
  */
 
-import { sortStandings, computeSaldo, aggregateMatchLines, DEFAULT_SORT_ORDER } from '../competitie/standings.ts';
+import {
+  sortStandings,
+  computeSaldo,
+  aggregateMatchLines,
+  toMatchLines,
+  DEFAULT_SORT_ORDER,
+} from '../competitie/standings.ts';
 import {
   markPresentForMatch,
   finalizeRoundAttendance,
@@ -125,6 +131,72 @@ describe('automatische aanwezigheid', () => {
       geblesseerd: ['p3'],
       gast: ['p4'],
       nietVerwerkt: ['p5'],
+    });
+  });
+});
+
+describe('KNKB 7-punten telling (competitie)', () => {
+  const red = { playerIds: ['a1', 'a2'], eersten: 6 };
+  const white = { playerIds: ['b1', 'b2'], eersten: 5 };
+
+  it('geeft de winnaar 7 eersten voor en de eersten van de verliezer tegen', () => {
+    // Het voorbeeld uit de opdracht: uitslag 5-5, daarna 6-2 in de beslissende eerst.
+    // Partuur 1 wint met 6-5 en krijgt 7 voor / 5 tegen; partuur 2 krijgt 5 voor / 7 tegen.
+    const lines = toMatchLines(red, white, 'red');
+
+    const winner = lines.find((l) => l.playerId === 'a1')!;
+    expect(winner.eerstenVoor).toBe(7);
+    expect(winner.eerstenTegen).toBe(5);
+    expect(winner.won).toBe(true);
+
+    const loser = lines.find((l) => l.playerId === 'b1')!;
+    expect(loser.eerstenVoor).toBe(5);
+    expect(loser.eerstenTegen).toBe(7);
+    expect(loser.won).toBe(false);
+  });
+
+  it('geeft elke speler van een partuur dezelfde regel', () => {
+    const lines = toMatchLines(red, white, 'red');
+    expect(lines).toHaveLength(4);
+    for (const id of ['a1', 'a2']) {
+      expect(lines.find((l) => l.playerId === id)!.eerstenVoor).toBe(7);
+    }
+    for (const id of ['b1', 'b2']) {
+      expect(lines.find((l) => l.playerId === id)!.eerstenVoor).toBe(5);
+    }
+  });
+
+  it('werkt ook als wit wint', () => {
+    const lines = toMatchLines({ ...red, eersten: 3 }, { ...white, eersten: 6 }, 'white');
+    expect(lines.find((l) => l.playerId === 'b1')!.eerstenVoor).toBe(7);
+    expect(lines.find((l) => l.playerId === 'b1')!.eerstenTegen).toBe(3);
+    expect(lines.find((l) => l.playerId === 'a1')!.eerstenVoor).toBe(3);
+    expect(lines.find((l) => l.playerId === 'a1')!.eerstenTegen).toBe(7);
+  });
+
+  it('houdt bij gelijkspel de werkelijke eersten aan, zonder 7 toe te kennen', () => {
+    // Een reguliere partij kan niet gelijk eindigen; dit geldt alleen voor vormen die
+    // dat expliciet toestaan.
+    const lines = toMatchLines({ ...red, eersten: 4 }, { ...white, eersten: 4 }, 'draw');
+    for (const l of lines) {
+      expect(l.eerstenVoor).toBe(4);
+      expect(l.eerstenTegen).toBe(4);
+    }
+  });
+
+  it('telt meerdere partijen op tot de competitiestand', () => {
+    const lines = [
+      ...toMatchLines(red, white, 'red'),
+      ...toMatchLines({ playerIds: ['a1'], eersten: 2 }, { playerIds: ['b1'], eersten: 6 }, 'white'),
+    ];
+    const agg = aggregateMatchLines(lines);
+    // a1: 7 voor + 2 voor = 9; tegen 5 + 7 = 12. Eén gewonnen, één verloren.
+    expect(agg.get('a1')).toMatchObject({
+      eerstenVoor: 9,
+      eerstenTegen: 12,
+      gespeeld: 2,
+      gewonnen: 1,
+      verloren: 1,
     });
   });
 });

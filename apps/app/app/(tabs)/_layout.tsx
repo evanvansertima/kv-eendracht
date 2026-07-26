@@ -17,7 +17,7 @@ import { useSession } from '../../src/lib/SessionProvider';
 const TABS = [
   { name: 'index', title: 'Home', icon: 'home', activeIcon: 'home' },
   { name: 'agenda', title: 'Agenda', icon: 'calendar-outline', activeIcon: 'calendar' },
-  { name: 'toernooien', title: 'Toernooien', icon: 'trophy-outline', activeIcon: 'trophy' },
+  { name: 'toernooien', title: 'Wedstrijden', icon: 'trophy-outline', activeIcon: 'trophy' },
   { name: 'competitie', title: 'Competitie', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
   { name: 'community', title: 'Community', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles' },
 ] as const;

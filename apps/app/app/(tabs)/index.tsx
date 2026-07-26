@@ -2,6 +2,9 @@ import { useCallback } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import heroPhoto from '../../assets/images/hero-kaatser.jpg';
 import { api, SYSTEM_LABELS, FORMATION_LABELS } from '../../src/lib/api';
 import { useAsync } from '../../src/lib/useAsync';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
@@ -20,7 +23,7 @@ import { type as t } from '../../src/theme/typography';
 
 const QUICK = [
   { label: 'Agenda', href: '/agenda', icon: 'calendar-outline' },
-  { label: 'Toernooien', href: '/toernooien', icon: 'trophy-outline' },
+  { label: 'Wedstrijden', href: '/toernooien', icon: 'trophy-outline' },
   { label: 'Competitie', href: '/competitie', icon: 'stats-chart-outline' },
 ] as const;
 
@@ -47,9 +50,35 @@ export default function Home() {
   return (
     <ScrollView contentContainerStyle={[s.page, isWide && s.pageWide]}>
       <View style={s.hero}>
-        <Text style={s.heroKicker}>Kaatsvereniging</Text>
-        <Text style={s.heroTitle}>KV Eendracht</Text>
-        <View style={s.heroRule} />
+        {/*
+          Action photo, right-aligned and faded behind the title.
+
+          Drop a photo at assets/images/hero-kaatser.jpg and it appears here. The file is
+          intentionally optional: `defaultSource` is absent and the Image simply renders
+          nothing if it is missing, so a missing asset degrades to the plain dark banner
+          rather than a broken layout.
+        */}
+        <Image
+          source={heroPhoto}
+          style={s.heroPhoto}
+          contentFit="cover"
+          transition={200}
+          accessibilityLabel="Kaatser in actie"
+        />
+        {/* A real gradient, not a solid block: a hard edge where a solid overlay ends
+            reads as a rendering fault rather than as a fade. */}
+        <LinearGradient
+          colors={[colors.sport, colors.sport, 'transparent']}
+          locations={[0, 0.4, 1]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={s.heroFade}
+        />
+        <View style={s.heroText}>
+          <Text style={s.heroKicker}>Kaatsvereniging</Text>
+          <Text style={s.heroTitle}>Eendracht</Text>
+          <View style={s.heroRule} />
+        </View>
       </View>
 
       <View style={s.quickRow}>
@@ -81,7 +110,7 @@ export default function Home() {
             <EmptyState title="Geen activiteiten gepland" />
           )}
 
-          <SectionHeader title="Volgend toernooi" />
+          <SectionHeader title="Volgende wedstrijd" />
           {nextTournament ? (
             <View style={s.tourCard}>
               <View style={s.rowBetween}>
@@ -100,7 +129,7 @@ export default function Home() {
               </Text>
             </View>
           ) : (
-            <EmptyState title="Geen toernooien gepland" />
+            <EmptyState title="Geen wedstrijden gepland" />
           )}
         </View>
 
@@ -167,7 +196,29 @@ const s = StyleSheet.create({
     borderRadius: radii.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xl,
+    overflow: 'hidden',
+    minHeight: 150,
+    justifyContent: 'center',
   },
+  // Right half of the banner, at 30% so the title stays the loudest thing on it.
+  heroPhoto: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '58%',
+    opacity: 0.3,
+  },
+  // Gradient-ish wash from the left so text never sits on busy pixels. A solid overlay
+  // with decreasing width reads as a fade without pulling in a gradient dependency.
+  heroFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  heroText: { zIndex: 1 },
   heroKicker: { ...t.sectionLabel, color: colors.onSportMuted },
   heroTitle: { ...t.hero, color: colors.onSport, marginTop: spacing.xs },
   heroRule: {

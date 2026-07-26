@@ -36,7 +36,7 @@ export default function Competitie() {
   if (state.phase === 'error')
     return <ErrorState message={state.message} onRetry={state.reload} />;
   if (state.data.length === 0)
-    return <EmptyState title="Nog geen stand" hint="De stand verschijnt na de eerste speelavond." />;
+    return <EmptyState title="Nog geen stand" hint="De stand verschijnt na de eerste speelronde." />;
 
   return (
     <ScrollView contentContainerStyle={[s.page, isWide && s.pageWide]}>

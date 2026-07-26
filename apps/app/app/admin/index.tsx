@@ -49,19 +49,19 @@ export default function AdminDashboard() {
 
       {active ? (
         <>
-          <SectionHeader title="Open speelavonden" />
+          <SectionHeader title="Open speelrondes" />
           {open.length === 0 ? (
             <EmptyState
-              title="Geen open speelavond"
-              hint="Alle speelavonden zijn afgerond."
+              title="Geen open speelronde"
+              hint="Alle speelrondes zijn afgerond."
             />
           ) : (
             open.map((r) => (
               <Pressable
                 key={r.id}
-                onPress={() => router.push(`/admin/speelavond/${r.id}`)}
+                onPress={() => router.push(`/admin/speelronde/${r.id}`)}
                 accessibilityRole="button"
-                accessibilityLabel={`Speelavond ${r.round_no}`}
+                accessibilityLabel={`Speelronde ${r.round_no}`}
                 style={({ pressed }) => [pressed && s.pressed]}
               >
                 <Card>
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
                       <Text style={s.badgeText}>{r.round_no}</Text>
                     </View>
                     <View style={s.flex}>
-                      <Text style={t.cardTitle}>Speelavond {r.round_no}</Text>
+                      <Text style={t.cardTitle}>Speelronde {r.round_no}</Text>
                       <Text style={t.meta}>
                         {r.played_on ? formatDate(r.played_on) : 'Datum onbekend'} ·{' '}
                         {r.result_count}/{r.match_count} uitslagen
@@ -83,23 +83,23 @@ export default function AdminDashboard() {
             ))
           )}
 
-          <SectionHeader title="Afgeronde speelavonden" />
+          <SectionHeader title="Afgeronde speelrondes" />
           {rounds
             .filter((r) => r.status === 'finalized')
             .slice(0, 5)
             .map((r) => (
               <Pressable
                 key={r.id}
-                onPress={() => router.push(`/admin/speelavond/${r.id}`)}
+                onPress={() => router.push(`/admin/speelronde/${r.id}`)}
                 accessibilityRole="button"
-                accessibilityLabel={`Speelavond ${r.round_no}, afgerond`}
+                accessibilityLabel={`Speelronde ${r.round_no}, afgerond`}
                 style={({ pressed }) => [pressed && s.pressed]}
               >
                 <Card>
                   <View style={s.row}>
                     <Ionicons name="checkmark-circle" size={20} color={colors.gain} />
                     <View style={s.flex}>
-                      <Text style={t.cardTitle}>Speelavond {r.round_no}</Text>
+                      <Text style={t.cardTitle}>Speelronde {r.round_no}</Text>
                       <Text style={t.meta}>
                         {r.played_on ? formatDate(r.played_on) : ''} · {r.result_count} uitslagen
                       </Text>

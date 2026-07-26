@@ -85,7 +85,7 @@ export default function Meer() {
                 <Row
                   icon="clipboard-outline"
                   title="Beheerdashboard"
-                  subtitle="Speelavonden, uitslagen en spelers"
+                  subtitle="Speelrondes, uitslagen en spelers"
                   onPress={() => router.push('/admin')}
                 />
               </Card>

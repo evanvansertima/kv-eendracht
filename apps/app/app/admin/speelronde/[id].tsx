@@ -22,7 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 const STATUS_ORDER = ['present', 'niet_verwerkt', 'excused', 'injured', 'guest', 'absent'];
 
-export default function Speelavond() {
+export default function Speelronde() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { isWide } = useBreakpoint();
@@ -88,7 +88,7 @@ export default function Speelavond() {
     <ScrollView contentContainerStyle={[s.page, isWide && s.pageWide]}>
       <View style={s.hero}>
         <Text style={s.heroKicker}>{round.competition_name}</Text>
-        <Text style={s.heroTitle}>Speelavond {round.round_no}</Text>
+        <Text style={s.heroTitle}>Speelronde {round.round_no}</Text>
         <Text style={s.heroMeta}>
           {round.played_on ? formatDate(round.played_on) : 'Datum onbekend'} ·{' '}
           {entered}/{matches.length} uitslagen
@@ -107,7 +107,7 @@ export default function Speelavond() {
       {matches.length === 0 ? (
         <EmptyState
           title="Nog geen partijen"
-          hint="Loot eerst de parturen voor deze speelavond."
+          hint="Loot eerst de parturen voor deze speelronde."
         />
       ) : (
         matches.map((m) => {
@@ -190,7 +190,7 @@ export default function Speelavond() {
                 <Pressable
                   onPress={() => void run('finalize', () => games.finalize(id))}
                   accessibilityRole="button"
-                  accessibilityLabel="Speelavond afronden bevestigen"
+                  accessibilityLabel="Speelronde afronden bevestigen"
                   style={[s.action, s.actionPrimary]}
                 >
                   {busy === 'finalize' ? (
@@ -205,13 +205,13 @@ export default function Speelavond() {
             <Pressable
               onPress={() => void loadPreview()}
               accessibilityRole="button"
-              accessibilityLabel="Speelavond afronden"
+              accessibilityLabel="Speelronde afronden"
               style={({ pressed }) => [s.action, s.actionPrimary, pressed && s.pressed]}
             >
               {busy === 'preview' ? (
                 <ActivityIndicator color={colors.onPrimary} />
               ) : (
-                <Text style={s.actionPrimaryText}>Speelavond afronden</Text>
+                <Text style={s.actionPrimaryText}>Speelronde afronden</Text>
               )}
             </Pressable>
           )}
@@ -221,13 +221,13 @@ export default function Speelavond() {
           <SectionHeader title="Afgerond" />
           <Card>
             <Text style={t.meta}>
-              Deze speelavond is afgerond. Heropenen verwijdert alleen automatisch gezette
+              Deze speelronde is afgerond. Heropenen verwijdert alleen automatisch gezette
               afwezigheid; handmatige correcties blijven staan.
             </Text>
             <Pressable
               onPress={() => void run('reopen', () => games.reopen(id))}
               accessibilityRole="button"
-              accessibilityLabel="Speelavond heropenen"
+              accessibilityLabel="Speelronde heropenen"
               style={({ pressed }) => [s.action, s.actionGhost, pressed && s.pressed]}
             >
               {busy === 'reopen' ? (

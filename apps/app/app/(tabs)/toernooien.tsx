@@ -27,7 +27,7 @@ export default function Toernooien() {
     return <ErrorState message={state.message} onRetry={state.reload} />;
 
   if (state.data.length === 0) {
-    return <EmptyState title="Nog geen toernooien" hint="Zodra er een toernooi gepland staat, verschijnt het hier." />;
+    return <EmptyState title="Nog geen wedstrijden" hint="Zodra er een wedstrijd gepland staat, verschijnt het hier." />;
   }
 
   return (

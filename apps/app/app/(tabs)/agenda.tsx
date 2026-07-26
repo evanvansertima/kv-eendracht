@@ -9,7 +9,7 @@ import { colors, spacing, radii, MIN_TOUCH } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
 
 /** Free text plus a suggestion list, so a new category needs no migration (spec section 7). */
-const TYPES = ['Alles', 'Competitie', 'Toernooi', 'Training', 'Vergadering', 'Overig'] as const;
+const TYPES = ['Alles', 'Competitie', 'Wedstrijd', 'Training'] as const;
 type TypeFilter = (typeof TYPES)[number];
 
 export default function Agenda() {
