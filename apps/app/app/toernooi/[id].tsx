@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   generateOmloopSchema,
@@ -96,7 +96,8 @@ export default function TournamentDetail() {
   const loadRegs = useCallback(() => tournaments.registrations(id), [id]);
   const regs = useAsync(loadRegs, [id]);
 
-  const { user } = useSession();
+  const { user, isStaff } = useSession();
+  const router = useRouter();
   const [regBusy, setRegBusy] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
 
@@ -198,6 +199,20 @@ export default function TournamentDetail() {
           <Text style={s.heroSeed}>Loting-seed {tournament.draw_seed}</Text>
         ) : null}
       </View>
+
+      {/* Admin shortcut into stap 3-5. Hidden once drawn: the screen itself refuses,
+          but offering a dead end is worse than not offering it. */}
+      {isStaff && !tournament.draw_published_at ? (
+        <Pressable
+          onPress={() => router.push(`/admin/toernooi/${id}`)}
+          accessibilityRole="button"
+          accessibilityLabel="Loten en publiceren"
+          style={({ pressed }) => [s.lotenBtn, pressed && s.pressed]}
+        >
+          <Ionicons name="shuffle-outline" size={18} color={colors.onPrimary} />
+          <Text style={s.lotenText}>Loten en publiceren</Text>
+        </Pressable>
+      ) : null}
 
       <Segmented options={TABS} value={tab} onChange={setTab} />
 
@@ -344,6 +359,18 @@ const s = StyleSheet.create({
   },
   regBtnOutText: { ...t.button, color: colors.text },
   pressed: { opacity: 0.75 },
+
+  lotenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: MIN_TOUCH,
+    borderRadius: radii.sm,
+    backgroundColor: colors.primary,
+    marginBottom: spacing.md,
+  },
+  lotenText: { ...t.button, color: colors.onPrimary },
 
   error: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.sm },
   errorText: { ...t.meta, color: colors.loss, flex: 1 },
