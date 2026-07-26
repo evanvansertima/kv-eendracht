@@ -8,6 +8,7 @@ import {
   generateKnockout,
   assignPoules,
   generatePouleSchedule,
+  generateOmloopSchema,
   type DrawPlayer,
   type DrawResult,
   type DrawTeam,
@@ -360,8 +361,31 @@ async function generateMatches(
     return n;
   }
 
-  // knockout, knockout_consolation, sneker round 1 and competition all start as a
-  // straight bracket; the differences appear in later rounds.
+  // Plain afvalsysteem uses the club's doorschuif, not a seeded power-of-two bracket.
+  //
+  // Only the FIRST omloop is persisted. In a doorschuif the composition of omloop 2
+  // depends on every result of omloop 1 — the staand nummer moves to the top, shifting
+  // all the pairings — so there is nothing stable to pre-link next_match_id to. Later
+  // omlopen are derived from results instead, which is also what lets a corrected
+  // uitslag reshape the rest of the schema rather than leaving a stale bracket behind.
+  if (tour.match_system === 'knockout') {
+    const schema = generateOmloopSchema(teams.map((t2) => t2.teamNo));
+    const omloop1 = schema.omlopen[0];
+    if (!omloop1) throw new HttpError(400, schema.messages[0] ?? 'Schema niet mogelijk.');
+
+    for (const p of omloop1.partijen) {
+      await tx.query(
+        `insert into public.matches
+           (tournament_id, bracket, round_no, match_no, team_red_id, team_white_id, status)
+         values ($1,'main',1,$2,$3,$4,'scheduled')`,
+        [tournamentId, p.matchNo, idByTeamNo.get(p.redTeamNo), idByTeamNo.get(p.whiteTeamNo)],
+      );
+    }
+    return omloop1.partijen.length;
+  }
+
+  // knockout_consolation keeps the seeded bracket: a herkansing needs the loser routing
+  // that next_match_id and consolation_next_match_id provide.
   const bracket = generateKnockout(teams, {
     thirdPlaceMatch: tour.third_place_match,
     withConsolation: tour.match_system === 'knockout_consolation',

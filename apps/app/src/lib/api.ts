@@ -537,7 +537,19 @@ export const tournaments = {
     request<{
       tournament: Tournament & { draw_seed: number | null };
       teams: { id: string; team_no: number; players: string | null }[];
-      matches: { id: string; bracket: string; round_no: number; match_no: number }[];
+      matches: {
+        id: string;
+        bracket: string;
+        round_no: number;
+        match_no: number;
+        poule_no: number | null;
+        status: string;
+        red_no: number | null;
+        white_no: number | null;
+        eersten_red: number | null;
+        eersten_white: number | null;
+        winner: 'red' | 'white' | 'draw' | null;
+      }[];
     }>(`/tournaments/${id}`),
 
   /** Draws without persisting, so the wizard can re-draw freely. */
@@ -625,18 +637,20 @@ export const community = {
 
 /** Dutch labels for the sport enums. Kept here so screens never show raw enum values. */
 export const SYSTEM_LABELS: Record<string, string> = {
-  knockout: 'Knock-out',
-  knockout_consolation: 'Knock-out + herkansing',
-  poule: 'Poules',
+  knockout: 'Afvalsysteem',
+  knockout_consolation: 'Afvalsysteem met herkansingsronde',
+  poule: 'Poulesysteem',
   competition: 'Competitie',
-  sneker: 'Sneker telling',
+  sneker: 'Snekertelling (verschillende maten)',
 };
 
 export const FORMATION_LABELS: Record<string, string> = {
-  vrije_formatie: 'Vrije formatie',
-  del: 'D.E.L.',
+  vrije_formatie: 'VF (Vrije formatie)',
+  del: 'D.E.L. (Door elkaar loten)',
+  pearke: 'Pearke (man + vrouw)',
+  // Still in the database and still rendered if an older toernooi uses one, but no
+  // longer offered when creating: the club's list is VF, D.E.L. and Pearke.
   del_abc: 'D.E.L. ABC',
   vrije_formatie_beperkt: 'Vrije formatie (beperkt)',
   twee_tegen_twee: '2 tegen 2',
-  pearke: 'Pearke',
 };

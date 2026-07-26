@@ -36,3 +36,4 @@ export type {
   SnekerStandingRow,
 } from './sneker.ts';
 export { SNEKER_DEFAULT, drawSnekerRounds, computeSnekerStanding } from './sneker.ts';
+export * from './omloop.ts';
