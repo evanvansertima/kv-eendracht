@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
@@ -100,34 +100,19 @@ export default function TournamentDetail() {
 
   const { user, isStaff } = useSession();
   const router = useRouter();
-  const [regBusy, setRegBusy] = useState(false);
-  const [regError, setRegError] = useState<string | null>(null);
 
   /**
-   * Whether the signed-in user is on the list.
+   * Whether the signed-in user is already on the list.
    *
-   * Matched on the player record linked to this login. An account with no linked
-   * player is never "registered", which is also the case the API rejects with a clear
-   * message rather than a failure.
+   * Matched on the player record linked to this login, and used only to label the
+   * button — the inschrijfformulier itself is open to anyone, with or without an
+   * account, so this never gates access.
    */
   const amRegistered =
     regs.phase === 'ready' && user
       ? regs.data.items.some((r) => r.player_id === user.player_id)
       : false;
 
-  async function toggleRegistration() {
-    setRegBusy(true);
-    setRegError(null);
-    try {
-      if (amRegistered) await tournaments.withdraw(id);
-      else await tournaments.register(id);
-      regs.reload();
-    } catch (err) {
-      setRegError(err instanceof Error ? err.message : 'Actie mislukt.');
-    } finally {
-      setRegBusy(false);
-    }
-  }
 
   /**
    * Rebuilds the omlopen from the stored partijen and their results.
@@ -276,13 +261,6 @@ export default function TournamentDetail() {
         </>
       ) : (
         <>
-          {regError ? (
-            <View style={s.error} accessibilityRole="alert">
-              <Ionicons name="alert-circle" size={16} color={colors.loss} />
-              <Text style={s.errorText}>{regError}</Text>
-            </View>
-          ) : null}
-
           {regs.phase === 'ready' && regs.data.registers_as_partuur ? (
             /* Vrije Formatie and Pearke: spelers arrive already paired up, so the
                individual button would throw away the very thing being registered. */
@@ -294,8 +272,7 @@ export default function TournamentDetail() {
             />
           ) : regs.phase === 'ready' && regs.data.registration_open ? (
             <Pressable
-              onPress={() => void toggleRegistration()}
-              disabled={regBusy}
+              onPress={() => router.push(`/inschrijven/${id}`)}
               accessibilityRole="button"
               accessibilityLabel={amRegistered ? 'Uitschrijven' : 'Inschrijven'}
               style={({ pressed }) => [
@@ -304,9 +281,9 @@ export default function TournamentDetail() {
                 pressed && s.pressed,
               ]}
             >
-              {regBusy ? (
-                <ActivityIndicator color={amRegistered ? colors.text : colors.onPrimary} />
-              ) : (
+              {/* No spinner: this navigates to the inschrijfformulier rather than
+                  performing the registration here. */}
+              {(
                 <>
                   <Ionicons
                     name={amRegistered ? 'close-circle-outline' : 'person-add-outline'}

@@ -58,6 +58,8 @@ export default function RootLayout() {
         <Stack.Screen name="meer/index" options={{ title: 'Meer' }} />
         <Stack.Screen name="meer/schermnaam" options={{ title: 'Schermnaam' }} />
         <Stack.Screen name="login" options={{ title: 'Inloggen' }} />
+        <Stack.Screen name="inschrijven/[id]" options={{ title: 'Inschrijven' }} />
+        <Stack.Screen name="inschrijving/[group]" options={{ title: 'Bevestiging' }} />
       </Stack>
     </SessionProvider>
   );

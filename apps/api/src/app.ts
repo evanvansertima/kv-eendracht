@@ -1,5 +1,6 @@
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import formbody from '@fastify/formbody';
 import { ZodError } from 'zod';
 import type { Config } from './config.ts';
 import { registerRoutes } from './routes.ts';
@@ -38,6 +39,11 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}):
   });
 
   await app.register(cors, { origin: config.CORS_ORIGINS, credentials: true });
+
+  // Form-encoded bodies. Payment providers post their return and webhook callbacks as
+  // application/x-www-form-urlencoded at least as often as JSON, and without this
+  // Fastify answers 415 before any handler runs.
+  await app.register(formbody);
 
   // Resolves the bearer token into req.claims for every route. It never rejects: a
   // public read with no token is valid, and RLS decides what it may see.

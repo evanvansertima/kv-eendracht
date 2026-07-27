@@ -48,6 +48,10 @@ export default function NieuweWedstrijd() {
   const [playedOn, setPlayedOn] = useState('');
   const [location, setLocation] = useState('Sportpark De Eendracht');
   const [deadline, setDeadline] = useState('');
+  // Held as typed text rather than a number, so a half-typed "7," is not destroyed by
+  // parsing on every keystroke. Converted to cents only on submit.
+  const [inleg, setInleg] = useState('');
+  const [gratis, setGratis] = useState(true);
 
   const [system, setSystem] = useState<(typeof SYSTEMS)[number]>('knockout');
   const [formation, setFormation] = useState<(typeof FORMATIONS)[number]>('del');
@@ -58,12 +62,26 @@ export default function NieuweWedstrijd() {
     setBusy(true);
     setError(null);
     try {
+      // Comma or point, both accepted — a Dutch keyboard offers a comma and refusing it
+      // would be a pointless obstacle. Cents, never a float.
+      const cents = gratis
+        ? null
+        : Math.round(Number.parseFloat(inleg.replace(',', '.')) * 100);
+
+      if (!gratis && (!Number.isFinite(cents) || cents === null || cents < 0)) {
+        setError('Vul een geldig bedrag in, bijvoorbeeld 7,50.');
+        setBusy(false);
+        return;
+      }
+
       const created = await tournaments.create({
         name: name.trim(),
         played_on: playedOn,
         location: location.trim() || null,
         match_system: system,
         formation_category: formation,
+        inleggeld_cents: cents,
+        betaling_verplicht: !gratis,
       });
 
       // Publishing and opening registration together: the deadline defaults to the day
@@ -143,6 +161,48 @@ export default function NieuweWedstrijd() {
                 Om 20:00 uur op die dag. Laat leeg om te sluiten op de wedstrijddag zelf.
               </Text>
             </View>
+
+            <Text style={[t.sectionLabel, s.spaced]}>Inleggeld</Text>
+            <View style={s.inlegRow}>
+              <Pressable
+                onPress={() => setGratis(true)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: gratis }}
+                accessibilityLabel="Gratis"
+                style={[s.inlegChip, gratis && s.inlegChipOn]}
+              >
+                <Text style={[s.inlegChipText, gratis && s.inlegChipTextOn]}>Gratis</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setGratis(false)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: !gratis }}
+                accessibilityLabel="Bedrag instellen"
+                style={[s.inlegChip, !gratis && s.inlegChipOn]}
+              >
+                <Text style={[s.inlegChipText, !gratis && s.inlegChipTextOn]}>Bedrag</Text>
+              </Pressable>
+            </View>
+
+            {!gratis ? (
+              <View style={s.euroRow}>
+                <Text style={s.euroSign}>€</Text>
+                <TextInput
+                  value={inleg}
+                  onChangeText={setInleg}
+                  placeholder="7,50"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                  accessibilityLabel="Inleggeld in euro"
+                  style={[s.input, s.flex]}
+                />
+              </View>
+            ) : null}
+            <Text style={s.note}>
+              {gratis
+                ? 'Deelnemers hoeven niets te betalen bij het inschrijven.'
+                : 'Deelnemers betalen dit bedrag tijdens het inschrijven via Weeztix.'}
+            </Text>
           </Card>
 
           <Pressable
@@ -287,6 +347,19 @@ const s = StyleSheet.create({
     color: colors.text,
   },
   spaced: { marginTop: spacing.md },
+  inlegRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+  inlegChip: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.full,
+    backgroundColor: colors.neutralChip,
+  },
+  inlegChipOn: { backgroundColor: colors.primary },
+  inlegChipText: { ...t.button, fontSize: 13, color: colors.textMuted },
+  inlegChipTextOn: { color: colors.onPrimary },
+  euroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  euroSign: { ...t.hero, fontSize: 20, lineHeight: 24, color: colors.text, marginTop: spacing.xs },
   note: { ...t.meta, marginTop: spacing.sm, fontStyle: 'italic' },
 
   choice: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: MIN_TOUCH },

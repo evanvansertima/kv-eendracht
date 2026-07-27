@@ -592,6 +592,9 @@ export const tournaments = {
     location?: string | null;
     match_system: string;
     formation_category: string;
+    /** Cents. Null means gratis. */
+    inleggeld_cents?: number | null;
+    betaling_verplicht?: boolean;
   }) =>
     request<{ id: string; name: string; status: string }>('/tournaments', {
       method: 'POST',
@@ -605,6 +608,9 @@ export const tournaments = {
         draw_published_at: string | null;
         draw_manually_adjusted: boolean;
         registration_deadline: string | null;
+        /** Cents; null means gratis. */
+        inleggeld_cents: number | null;
+        betaling_verplicht: boolean;
       };
       teams: {
         id: string;
@@ -685,6 +691,100 @@ export type Photo = {
   uploader_name: string | null;
   /** Absolute URL, built server-side from MINIO_PUBLIC_URL. */
   url: string;
+};
+
+export type BetaalStatus = 'unpaid' | 'pending' | 'paid' | 'failed' | 'refunded';
+
+export type InschrijfSpeler = { player_id?: string | null; naam?: string | null };
+
+export type Bevestiging = {
+  partuur_group: string;
+  wedstrijd: string;
+  played_on: string | null;
+  location: string | null;
+  spelers: string[];
+  aanmelder_naam: string;
+  aanmelder_email: string;
+  aanmelder_telefoon: string;
+  inleggeld_cents: number | null;
+  betaald_cents: number | null;
+  betaalstatus: BetaalStatus;
+  betaalstatus_label: string;
+  betaald_op: string | null;
+  bevestigd_op: string | null;
+  ingeschreven_op: string;
+};
+
+export type DeelnemerPartuur = {
+  partuur_group: string;
+  spelers: { registration_id: string; player_id: string; naam: string; niveau: string | null }[];
+  aanmelder_naam: string | null;
+  aanmelder_email: string | null;
+  aanmelder_telefoon: string | null;
+  ingeschreven_op: string;
+  betaalstatus: BetaalStatus;
+  betaalstatus_label: string;
+  betaald_cents: number | null;
+  bevestigd: boolean;
+  status: string;
+};
+
+/** € 7,50 — comma, as the club writes it. Null means gratis. */
+export function formatEuro(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined) return 'Gratis';
+  return `\u20ac\u00a0${(cents / 100).toFixed(2).replace('.', ',')}`;
+}
+
+export const inschrijving = {
+  /**
+   * Registers a partuur.
+   *
+   * `idempotencyKey` must be stable for one form session: it is what makes a refresh or
+   * a return from the payment page replay the original registration instead of creating
+   * a second partuur.
+   */
+  create: (
+    tournamentId: string,
+    input: {
+      idempotency_key: string;
+      spelers: InschrijfSpeler[];
+      aanmelder_naam: string;
+      aanmelder_email: string;
+      aanmelder_telefoon: string;
+    },
+  ) =>
+    request<{
+      partuur_group: string;
+      betaalstatus: BetaalStatus;
+      betaalstatus_label: string;
+      checkout_url: string | null;
+      duplicate: boolean;
+    }>(`/tournaments/${tournamentId}/inschrijven`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  bevestiging: (group: string) => request<Bevestiging>(`/inschrijving/${group}`),
+
+  deelnemers: (tournamentId: string) =>
+    request<{ parturen: DeelnemerPartuur[] }>(`/tournaments/${tournamentId}/deelnemers`),
+
+  update: (
+    group: string,
+    input: { betaalstatus?: BetaalStatus; status?: string; bevestigd?: boolean },
+  ) => request<{ ok: boolean }>(`/inschrijving/${group}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }),
+
+  remove: (group: string) => request<void>(`/inschrijving/${group}`, { method: 'DELETE' }),
+
+  /** Moves one speler to another partuur, or to a new one when null. */
+  moveSpeler: (registrationId: string, naarPartuurGroup: string | null) =>
+    request<{ partuur_group: string }>(`/inschrijving/speler/${registrationId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ naar_partuur_group: naarPartuurGroup }),
+    }),
 };
 
 export const media = {

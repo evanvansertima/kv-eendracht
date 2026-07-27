@@ -79,7 +79,8 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
         `select id, name, description, played_on, location, match_system, formation_category,
                 team_size, available_courts, status, visibility, draw_seed, draw_published_at,
                 draw_manually_adjusted, registration_deadline,
-                third_place_match, consolation_mode
+                third_place_match, consolation_mode,
+                inleggeld_cents, betaling_verplicht
            from public.tournaments where id = $1`,
         [id],
       );
