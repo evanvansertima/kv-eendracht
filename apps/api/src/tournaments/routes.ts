@@ -126,6 +126,15 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
         third_place_match: z.boolean().optional(),
         abc_strict: z.boolean().optional(),
         pearke_mixed_required: z.boolean().optional(),
+        /**
+         * Inleggeld in cents. Omit or send null for gratis.
+         *
+         * Cents, not euros: money in a float eventually produces a total a cent out
+         * that cannot be explained to a penningmeester.
+         */
+        inleggeld_cents: z.number().int().min(0).max(100_000).nullable().optional(),
+        /** Only meaningful when there is an inleggeld to pay. */
+        betaling_verplicht: z.boolean().optional(),
       })
       .parse(req.body);
 
@@ -133,15 +142,17 @@ export function registerTournamentRoutes(app: FastifyInstance, config: Config): 
       const { rows } = await tx.query(
         `insert into public.tournaments
            (name, played_on, location, description, match_system, formation_category,
-            available_courts, third_place_match, abc_strict, pearke_mixed_required, status)
+            available_courts, third_place_match, abc_strict, pearke_mixed_required,
+            inleggeld_cents, betaling_verplicht, status)
          values ($1,$2,$3,$4,$5,$6, coalesce($7,2), coalesce($8,false),
-                 coalesce($9,true), coalesce($10,true), 'draft')
-         returning id, name, status`,
+                 coalesce($9,true), coalesce($10,true), $11, coalesce($12,false), 'draft')
+         returning id, name, status, inleggeld_cents`,
         [
           body.name, body.played_on, body.location ?? null, body.description ?? null,
           body.match_system, body.formation_category, body.available_courts ?? null,
           body.third_place_match ?? null, body.abc_strict ?? null,
           body.pearke_mixed_required ?? null,
+          body.inleggeld_cents ?? null, body.betaling_verplicht ?? null,
         ],
       );
       return rows[0];

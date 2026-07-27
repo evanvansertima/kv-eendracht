@@ -28,7 +28,7 @@ begin
   v_beschrijving := coalesce(new.description, '')
     || case
          when new.inleggeld_cents is null then E'\n\nInleggeld: gratis'
-         else E'\n\nInleggeld: € ' || to_char(new.inleggeld_cents / 100.0, 'FM999G999D00')
+         else E'\n\nInleggeld: € ' || public.format_euro(new.inleggeld_cents)
        end;
 
   if tg_op = 'INSERT' or new.agenda_event_id is null then

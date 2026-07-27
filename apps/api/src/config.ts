@@ -25,6 +25,14 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
 
+  // Payments. 'test' until Weeztix credentials exist; the flow is identical either way.
+  PAYMENT_PROVIDER: z.enum(['test', 'weeztix']).default('test'),
+  WEEZTIX_API_KEY: z.string().optional(),
+  /** Where the provider sends webhooks and where the test checkout is served. */
+  PUBLIC_API_URL: z.string().url().default('http://localhost:3000'),
+  /** Where the user is returned to after paying. */
+  PUBLIC_APP_URL: z.string().url().default('http://localhost:8090'),
+
   // Object storage. Two URLs rather than one: the API reaches MinIO over the internal
   // container network, while browsers and phones fetch the images over the public
   // address. They are the same in development and differ once Caddy sits in front.
