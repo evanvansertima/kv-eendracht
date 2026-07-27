@@ -5,6 +5,7 @@ import { useAsync } from '../../src/lib/useAsync';
 import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { formatRelative } from '../../src/lib/dates';
 import { Card, Loading, ErrorState, EmptyState, Segmented } from '../../src/components/ui';
+import { Fotos } from '../../src/components/Fotos';
 import { colors, spacing } from '../../src/theme/tokens';
 import { type as t } from '../../src/theme/typography';
 
@@ -74,12 +75,7 @@ export default function Community() {
           ))
         ))}
 
-      {section === "Foto's" && (
-        <EmptyState
-          title="Foto's komen eraan"
-          hint="Uploaden werkt zodra inloggen beschikbaar is."
-        />
-      )}
+      {section === "Foto's" && <Fotos />}
 
       {section === 'Peilingen' &&
         (poll ? (

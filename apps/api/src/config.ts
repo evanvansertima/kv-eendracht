@@ -24,6 +24,14 @@ const schema = z.object({
   // one purpose validates for the other.
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+
+  // Object storage. Two URLs rather than one: the API reaches MinIO over the internal
+  // container network, while browsers and phones fetch the images over the public
+  // address. They are the same in development and differ once Caddy sits in front.
+  MINIO_ENDPOINT: z.string().url().default('http://localhost:9000'),
+  MINIO_PUBLIC_URL: z.string().url().default('http://localhost:9000'),
+  MINIO_ACCESS_KEY: z.string().min(3).default('kvadmin'),
+  MINIO_SECRET_KEY: z.string().min(8),
 });
 
 export type Config = z.infer<typeof schema>;

@@ -8,6 +8,7 @@ import { registerGameRoutes } from './games/routes.ts';
 import { registerTournamentRoutes } from './tournaments/routes.ts';
 import { registerContentRoutes } from './content/routes.ts';
 import { registerCommunityRoutes } from './community/routes.ts';
+import { registerStorageRoutes } from './storage/routes.ts';
 import { attachClaims } from './auth/middleware.ts';
 
 /**
@@ -46,6 +47,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}):
   registerTournamentRoutes(app, config);
   registerContentRoutes(app, config);
   registerCommunityRoutes(app, config);
+  registerStorageRoutes(app, config);
   registerRoutes(app, config);
 
   app.setErrorHandler((err: FastifyError, _req, reply) => {

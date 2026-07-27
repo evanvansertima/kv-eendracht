@@ -676,6 +676,35 @@ export const agendaAdmin = {
   remove: (id: string) => request<void>(`/admin/agenda/${id}`, { method: 'DELETE' }),
 };
 
+export type Photo = {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+  moderation_status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  uploader_name: string | null;
+  /** Absolute URL, built server-side from MINIO_PUBLIC_URL. */
+  url: string;
+};
+
+export const media = {
+  list: () => request<{ items: Photo[] }>('/media').then((r) => r.items),
+
+  uploadUrl: (contentType: string, sizeBytes?: number) =>
+    request<{ upload_url: string; storage_path: string; expires_in: number }>(
+      '/media/upload-url',
+      { method: 'POST', body: JSON.stringify({ content_type: contentType, size_bytes: sizeBytes }) },
+    ),
+
+  complete: (storagePath: string, caption: string | null) =>
+    request<{ id: string; moderation_status: string }>('/media/complete', {
+      method: 'POST',
+      body: JSON.stringify({ storage_path: storagePath, caption }),
+    }),
+
+  remove: (id: string) => request<void>(`/media/${id}`, { method: 'DELETE' }),
+};
+
 export const moderation = {
   queue: () => request<{ queue: QueueItem[]; reports: ReportItem[] }>('/moderation/queue'),
 
