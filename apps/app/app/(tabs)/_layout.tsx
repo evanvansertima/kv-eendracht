@@ -7,25 +7,23 @@ import { useBreakpoint } from '../../src/lib/useBreakpoint';
 import { useSession } from '../../src/lib/SessionProvider';
 
 /**
- * Five bottom tabs plus a profile button in every header.
+ * Six bottom tabs plus a profile button in every header.
  *
- * Six primary destinations would crowd a phone, so Login / Profiel / Beheer live behind
- * the profile button (KV-EENDRACHT-APP-SPEC section 6). Its label changes with the
- * session: Login -> Profiel -> Beheer.
- */
-
-/**
- * LIVE sits in the middle, deliberately.
+ * The spec caps the bar at five (section 6), on the grounds that six crowds a small
+ * phone. That was right, and Wedstrijden is worth the crowding anyway: it is a primary
+ * destination for members, and reaching it only through a Home shortcut hid it. The cost
+ * is paid in the label size below rather than by dropping something else.
  *
- * It is the one screen used while a partij is actually being played, so it takes the
- * thumb-reachable centre slot rather than a place at the end of the row.
+ * Login / Profiel / Beheer stay behind the profile button, which is what keeps this at
+ * six rather than seven. Its label follows the session: Login -> Profiel -> Beheer.
  *
- * Wedstrijden moves off the tab bar to make room; it stays reachable from the Home
- * quick links and from Beheer, which is where it is actually used.
+ * LIVE keeps the centre slot deliberately — it is the screen used while a partij is
+ * actually being played, so it stays the easiest one to hit with a thumb.
  */
 const TABS = [
   { name: 'index', title: 'Home', icon: 'home', activeIcon: 'home' },
   { name: 'agenda', title: 'Agenda', icon: 'calendar-outline', activeIcon: 'calendar' },
+  { name: 'toernooien', title: 'Wedstrijden', icon: 'trophy-outline', activeIcon: 'trophy' },
   { name: 'scorebord', title: 'LIVE', icon: 'radio-outline', activeIcon: 'radio' },
   { name: 'competitie', title: 'Competitie', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
   { name: 'community', title: 'Community', icon: 'chatbubbles-outline', activeIcon: 'chatbubbles' },
@@ -78,7 +76,20 @@ export default function TabsLayout() {
           height: isWide ? 62 : Platform.OS === 'ios' ? 84 : 64,
           paddingTop: spacing.xs,
         },
-        tabBarLabelStyle: { fontFamily: fonts.bodySemiBold, fontSize: 11 },
+        // Six tabs rather than the spec's five. "Competitie" and "Wedstrijden" are long
+        // words, so the label drops a point and the item padding is removed; without
+        // this they ellipsise on a 375pt screen.
+        tabBarLabelStyle: {
+          fontFamily: fonts.bodySemiBold,
+          fontSize: isWide ? 11 : 9,
+          // Six labels across 375pt leaves ~62pt each. "Wedstrijden" and "Community"
+          // are the long ones and ellipsised at 9.5pt with default spacing; negative
+          // tracking plus zero item padding buys back the few points they needed.
+          letterSpacing: isWide ? 0 : -0.3,
+          marginHorizontal: -2,
+        },
+        tabBarItemStyle: { paddingHorizontal: 0 },
+        tabBarIconStyle: { marginBottom: -2 },
         sceneStyle: { backgroundColor: colors.background },
       }}
     >
@@ -98,8 +109,6 @@ export default function TabsLayout() {
           }}
         />
       ))}
-      {/* Registered but hidden: reachable from Home and Beheer, not a tab. */}
-      <Tabs.Screen name="toernooien" options={{ href: null, title: 'Wedstrijden' }} />
     </Tabs>
   );
 }
